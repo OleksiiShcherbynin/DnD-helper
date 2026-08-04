@@ -104,6 +104,18 @@ _PACT_MAX_SPELL_LEVEL = 5
 _HALF_CASTER_MIN_LEVEL = 2
 
 
+def roles_of(class_key: str) -> frozenset[str]:
+    """
+    Что класс приносит партии.
+
+    Понимает и кастеров, и остальных: в партии сидит воин и разбойник, и без
+    них картина покрытия ролей была бы неполной.
+    """
+    if class_key in CASTERS:
+        return CASTERS[class_key].party_roles
+    return NON_CASTER_ROLES.get(class_key.removeprefix("srd_"), frozenset())
+
+
 def profile(class_key: str) -> ClassProfile:
     """Профиль класса. Неизвестный класс — ошибка, а не молчаливый пропуск."""
     if class_key not in CASTERS:

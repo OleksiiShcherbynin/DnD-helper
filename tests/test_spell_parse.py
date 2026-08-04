@@ -109,6 +109,25 @@ def test_armor_spells_that_set_ac_are_defensive(raw):
     assert parse_spell(raw["Mage Armor"]).role == "defense"
 
 
+def test_damage_that_heals_the_caster_is_still_damage(raw):
+    """
+    Vampiric Touch лечит заклинателя на половину нанесённого урона. Лечение
+    здесь — надбавка к атаке, а не назначение заклинания.
+    """
+    assert raw["Vampiric Touch"]["damage_roll"] == "3d6"
+    assert parse_spell(raw["Vampiric Touch"]).role == "damage"
+
+
+@pytest.mark.parametrize("name", ["Protection from Poison", "Magic Circle"])
+def test_protection_from_a_condition_is_not_control(raw, name):
+    """
+    Ловушка: у защитных заклинаний слова состояний встречаются в отрицании —
+    "against being poisoned", "can't be charmed, frightened". Накладывает
+    состояние одно заклинание, защищает от него совсем другое.
+    """
+    assert parse_spell(raw[name]).role != "control"
+
+
 def test_removing_conditions_is_not_control(raw):
     """
     Lesser Restoration перечисляет состояния, потому что снимает их.

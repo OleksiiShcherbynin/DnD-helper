@@ -100,12 +100,25 @@ _BLOCKS_HEALING = re.compile(
     r"(?:can'?t|cannot|unable to|prevented from)\s+regain(?:ing)?", re.I
 )
 
-#: Состояния из PHB. Их наличие вместе со спасброском означает контроль.
+#: Состояния из PHB.
 _CONDITIONS = (
     "restrained", "paralyzed", "charmed", "frightened", "prone", "stunned",
     "incapacitated", "blinded", "deafened", "grappled", "unconscious",
     "petrified", "poisoned",
 )
+
+#: Обороты, после которых состояние означает защиту от него, а не наложение:
+#: "can't be charmed", "against being poisoned", "if it isn't incapacitated".
+#: Без этой проверки Magic Circle и Protection from Poison попадали в контроль.
+_PROTECTIVE = re.compile(
+    r"(?:can'?t be|cannot be|isn'?t|is not|aren'?t|are not|against being|"
+    r"immune to|immunity to|no longer|otherwise|ends? the|removes? the|"
+    r"if it is|suppress)\b[^.]{0,40}$",
+    re.I,
+)
+
+#: Насколько далеко назад смотреть в поисках защитного оборота.
+_PROTECTIVE_LOOKBACK = 60
 
 #: Признаки защитного заклинания. "base AC becomes" — это Mage Armor, который
 #: не даёт бонуса к AC, а задаёт его заново.
@@ -120,6 +133,26 @@ _DEFENSIVE = re.compile(
 #: creature traveling with you each take 4d6" — поэтому шаблон ищет "you" и
 #: "take" в пределах одного предложения, а не подряд.
 _SELF_DAMAGE = re.compile(r"\byou\b[^.]{0,80}?\btakes?\s+\d+d\d+", re.I)
+
+
+def _inflicts_condition(desc: str, lowered: str) -> bool:
+    """
+    Накладывает ли заклинание состояние — в отличие от защиты от него.
+
+    Слово состояния само по себе ничего не значит: у Magic Circle стоит
+    "can't be charmed, frightened", а у Protection from Poison — "against
+    being poisoned". Поэтому каждое вхождение проверяется по тому, что стоит
+    перед ним, и контролем заклинание считается только если хотя бы одно
+    вхождение не защитное.
+    """
+    for condition in _CONDITIONS:
+        start = 0
+        while (found := lowered.find(condition, start)) != -1:
+            before = desc[max(0, found - _PROTECTIVE_LOOKBACK):found]
+            if not _PROTECTIVE.search(before):
+                return True
+            start = found + len(condition)
+    return False
 
 
 def _classify_role(raw: dict) -> SpellRole:
@@ -148,17 +181,21 @@ def _classify_role(raw: dict) -> SpellRole:
     desc = raw.get("desc") or ""
     lowered = desc.lower()
     lasting = "instantaneous" not in (raw.get("duration") or "").lower()
+    dice = _DICE.findall(desc)
+    hurts_others = "damage" in lowered and len(dice) > len(_SELF_DAMAGE.findall(desc))
+
+    # Урон проверяется раньше лечения: Vampiric Touch возвращает заклинателю
+    # половину нанесённого, но это надбавка к атаке, а не назначение.
+    if raw.get("damage_roll"):
+        return "damage"
 
     if _HEALS.search(desc) and not _BLOCKS_HEALING.search(desc):
         return "healing"
 
-    inflicts_condition = any(condition in lowered for condition in _CONDITIONS)
-    if inflicts_condition and (lasting or raw.get("saving_throw_ability")):
+    if _inflicts_condition(desc, lowered) and (lasting or raw.get("saving_throw_ability")):
         return "control"
 
-    dice = _DICE.findall(desc)
-    hurts_others = "damage" in lowered and len(dice) > len(_SELF_DAMAGE.findall(desc))
-    if raw.get("damage_roll") or hurts_others:
+    if hurts_others:
         return "damage"
 
     if _DEFENSIVE.search(desc):
