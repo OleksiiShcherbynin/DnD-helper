@@ -59,6 +59,16 @@ class Beast(BaseModel):
 
 
 @dataclass(frozen=True)
+class Character:
+    """Персонаж игрока: то, что бот помнит между сообщениями."""
+
+    class_key: str
+    level: int
+    #: Код партии, если игрок в неё вступил.
+    party_code: str | None = None
+
+
+@dataclass(frozen=True)
 class PartyMember:
     """
     Союзник по партии.
