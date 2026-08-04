@@ -10,9 +10,18 @@
    "Thunder" при "piercing" в описании. Урон берётся из текста статблока.
 """
 
+import json
+from pathlib import Path
 import re
 
 from core.models import Beast
+
+#: Куда tools/sync_catalog.py кладёт загруженный каталог.
+DEFAULT_BEASTS_PATH = Path(__file__).resolve().parent.parent / "data" / "catalog" / "beasts.json"
+
+
+class CatalogMissing(FileNotFoundError):
+    """Каталог ещё не загружен."""
 
 #: "Hit: 7 (2d4 + 2) piercing damage" -> 7. Первое число и есть средний урон.
 _HIT_AVERAGE = re.compile(r"Hit:\s*(\d+)")
@@ -75,3 +84,14 @@ def parse_beast(raw: dict) -> Beast:
         passive_perception=raw.get("passive_perception") or 0,
         is_swarm=raw["name"].lower().startswith("swarm of"),
     )
+
+
+def load_beasts(path: Path | str | None = None) -> list[Beast]:
+    """Прочитать сохранённый каталог зверей с диска."""
+    path = Path(path) if path is not None else DEFAULT_BEASTS_PATH
+    if not path.exists():
+        raise CatalogMissing(
+            f"Каталог не найден: {path}. "
+            f"Загрузите его один раз: uv run python -m tools.sync_catalog"
+        )
+    return [parse_beast(item) for item in json.loads(path.read_text(encoding="utf-8"))]
