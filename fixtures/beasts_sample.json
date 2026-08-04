@@ -1,0 +1,1238 @@
+[
+  {
+    "key": "srd_wolf",
+    "name": "Wolf",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Medium",
+      "key": "medium"
+    },
+    "challenge_rating": 0.25,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 40,
+      "unit": "feet"
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 40,
+      "crawl": 20,
+      "hover": false,
+      "fly": 0,
+      "burrow": 0,
+      "climb": 20,
+      "swim": 20
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 13,
+    "armor_detail": "natural armor",
+    "hit_points": 11,
+    "hit_dice": "2d8+2",
+    "experience_points": 50,
+    "ability_scores": {
+      "strength": 12,
+      "dexterity": 15,
+      "constitution": 12,
+      "intelligence": 3,
+      "wisdom": 12,
+      "charisma": 6
+    },
+    "modifiers": {
+      "strength": 1,
+      "dexterity": 2,
+      "constitution": 1,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -2
+    },
+    "initiative_bonus": 2,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": 1,
+      "dexterity": 2,
+      "constitution": 1,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -2
+    },
+    "skill_bonuses": {
+      "perception": 3,
+      "stealth": 4
+    },
+    "skill_bonuses_all": {
+      "acrobatics": 2,
+      "animal_handling": 1,
+      "arcana": -4,
+      "athletics": 1,
+      "deception": -2,
+      "history": -4,
+      "insight": 1,
+      "intimidation": -2,
+      "investigation": -4,
+      "medicine": 1,
+      "nature": -4,
+      "perception": 3,
+      "performance": -2,
+      "persuasion": -2,
+      "religion": -4,
+      "sleight_of_hand": 2,
+      "stealth": 4,
+      "survival": 1
+    },
+    "passive_perception": 13,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": null,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Bite",
+        "desc": "Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 7 (2d4 + 2) piercing damage. If the target is a creature, it must succeed on a DC 11 Strength saving throw or be knocked prone.",
+        "attacks": [
+          {
+            "name": "Bite attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 4,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 2,
+            "damage_die_type": "D4",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Keen Hearing and Smell",
+        "desc": "The wolf has advantage on Wisdom (Perception) checks that rely on hearing or smell."
+      },
+      {
+        "name": "Pack Tactics",
+        "desc": "The wolf has advantage on an attack roll against a creature if at least one of the wolf's allies is within 5 ft. of the creature and the ally isn't incapacitated."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Forest or Jungle",
+        "key": "forest"
+      },
+      {
+        "name": "Grassland or Plains",
+        "key": "grassland"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_brown-bear",
+    "name": "Brown Bear",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Large",
+      "key": "large"
+    },
+    "challenge_rating": 1.0,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 40,
+      "unit": "feet",
+      "climb": 30
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 40,
+      "crawl": 20,
+      "hover": false,
+      "fly": 0,
+      "burrow": 0,
+      "climb": 30,
+      "swim": 20
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 11,
+    "armor_detail": "natural armor",
+    "hit_points": 34,
+    "hit_dice": "4d10+12",
+    "experience_points": 200,
+    "ability_scores": {
+      "strength": 19,
+      "dexterity": 10,
+      "constitution": 16,
+      "intelligence": 2,
+      "wisdom": 13,
+      "charisma": 7
+    },
+    "modifiers": {
+      "strength": 4,
+      "dexterity": 0,
+      "constitution": 3,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -2
+    },
+    "initiative_bonus": 0,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": 4,
+      "dexterity": 0,
+      "constitution": 3,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -2
+    },
+    "skill_bonuses": {
+      "perception": 3
+    },
+    "skill_bonuses_all": {
+      "acrobatics": 0,
+      "animal_handling": 1,
+      "arcana": -4,
+      "athletics": 4,
+      "deception": -2,
+      "history": -4,
+      "insight": 1,
+      "intimidation": -2,
+      "investigation": -4,
+      "medicine": 1,
+      "nature": -4,
+      "perception": 3,
+      "performance": -2,
+      "persuasion": -2,
+      "religion": -4,
+      "sleight_of_hand": 0,
+      "stealth": 0,
+      "survival": 1
+    },
+    "passive_perception": 13,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": null,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Bite",
+        "desc": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 8 (1d8 + 4) piercing damage.",
+        "attacks": [
+          {
+            "name": "Bite attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 6,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 1,
+            "damage_die_type": "D8",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 1,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      },
+      {
+        "name": "Claws",
+        "desc": "Melee Weapon Attack: +6 to hit, reach 5 ft., one target. Hit: 11 (2d6 + 4) slashing damage.",
+        "attacks": [
+          {
+            "name": "Claws attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 6,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 2,
+            "damage_die_type": "D6",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 2,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      },
+      {
+        "name": "Multiattack",
+        "desc": "The bear makes two attacks: one with its bite and one with its claws.",
+        "attacks": [],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Keen Smell",
+        "desc": "The bear has advantage on Wisdom (Perception) checks that rely on smell."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Arctic or Tundra",
+        "key": "arctic"
+      },
+      {
+        "name": "Forest or Jungle",
+        "key": "forest"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      },
+      {
+        "name": "Mountain",
+        "key": "mountain"
+      },
+      {
+        "name": "Feywild",
+        "key": "srd_feywild"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_giant-eagle",
+    "name": "Giant Eagle",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Large",
+      "key": "large"
+    },
+    "challenge_rating": 1.0,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 10,
+      "unit": "feet",
+      "fly": 80
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 10,
+      "crawl": 5,
+      "hover": false,
+      "fly": 80,
+      "burrow": 0,
+      "climb": 5,
+      "swim": 5
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "neutral good",
+    "languages": {
+      "as_string": "Giant Eagle, understands Common and Auran but can't speak",
+      "data": []
+    },
+    "armor_class": 13,
+    "armor_detail": "",
+    "hit_points": 26,
+    "hit_dice": "4d10+4",
+    "experience_points": 200,
+    "ability_scores": {
+      "strength": 16,
+      "dexterity": 17,
+      "constitution": 13,
+      "intelligence": 8,
+      "wisdom": 14,
+      "charisma": 10
+    },
+    "modifiers": {
+      "strength": 3,
+      "dexterity": 3,
+      "constitution": 1,
+      "intelligence": -1,
+      "wisdom": 2,
+      "charisma": 0
+    },
+    "initiative_bonus": 3,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": 3,
+      "dexterity": 3,
+      "constitution": 1,
+      "intelligence": -1,
+      "wisdom": 2,
+      "charisma": 0
+    },
+    "skill_bonuses": {
+      "perception": 4
+    },
+    "skill_bonuses_all": {
+      "acrobatics": 3,
+      "animal_handling": 2,
+      "arcana": -1,
+      "athletics": 3,
+      "deception": 0,
+      "history": -1,
+      "insight": 2,
+      "intimidation": 0,
+      "investigation": -1,
+      "medicine": 2,
+      "nature": -1,
+      "perception": 4,
+      "performance": 0,
+      "persuasion": 0,
+      "religion": -1,
+      "sleight_of_hand": 3,
+      "stealth": 3,
+      "survival": 2
+    },
+    "passive_perception": 14,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": null,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Beak",
+        "desc": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 6 (1d6 + 3) piercing damage.",
+        "attacks": [
+          {
+            "name": "Beak attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 5,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 1,
+            "damage_die_type": "D6",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 1,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      },
+      {
+        "name": "Multiattack",
+        "desc": "The eagle makes two attacks: one with its beak and one with its talons.",
+        "attacks": [],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      },
+      {
+        "name": "Talons",
+        "desc": "Melee Weapon Attack: +5 to hit, reach 5 ft., one target. Hit: 10 (2d6 + 3) slashing damage.",
+        "attacks": [
+          {
+            "name": "Talons attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 5,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 2,
+            "damage_die_type": "D6",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 2,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Keen Sight",
+        "desc": "The eagle has advantage on Wisdom (Perception) checks that rely on sight."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Coast",
+        "key": "coast"
+      },
+      {
+        "name": "Desert",
+        "key": "desert"
+      },
+      {
+        "name": "Grassland or Plains",
+        "key": "grassland"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      },
+      {
+        "name": "Mountain",
+        "key": "mountain"
+      },
+      {
+        "name": "Feywild",
+        "key": "srd_feywild"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_giant-octopus",
+    "name": "Giant Octopus",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Large",
+      "key": "large"
+    },
+    "challenge_rating": 1.0,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 10,
+      "unit": "feet",
+      "swim": 60
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 10,
+      "crawl": 5,
+      "hover": false,
+      "fly": 0,
+      "burrow": 0,
+      "climb": 5,
+      "swim": 60
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 11,
+    "armor_detail": "",
+    "hit_points": 52,
+    "hit_dice": "8d10+8",
+    "experience_points": 200,
+    "ability_scores": {
+      "strength": 17,
+      "dexterity": 13,
+      "constitution": 13,
+      "intelligence": 4,
+      "wisdom": 10,
+      "charisma": 4
+    },
+    "modifiers": {
+      "strength": 3,
+      "dexterity": 1,
+      "constitution": 1,
+      "intelligence": -3,
+      "wisdom": 0,
+      "charisma": -3
+    },
+    "initiative_bonus": 1,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": 3,
+      "dexterity": 1,
+      "constitution": 1,
+      "intelligence": -3,
+      "wisdom": 0,
+      "charisma": -3
+    },
+    "skill_bonuses": {
+      "perception": 4,
+      "stealth": 5
+    },
+    "skill_bonuses_all": {
+      "acrobatics": 1,
+      "animal_handling": 0,
+      "arcana": -3,
+      "athletics": 3,
+      "deception": -3,
+      "history": -3,
+      "insight": 0,
+      "intimidation": -3,
+      "investigation": -3,
+      "medicine": 0,
+      "nature": -3,
+      "perception": 4,
+      "performance": -3,
+      "persuasion": -3,
+      "religion": -3,
+      "sleight_of_hand": 1,
+      "stealth": 5,
+      "survival": 0
+    },
+    "passive_perception": 14,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": 60,
+    "blindsight_range": null,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Ink Cloud",
+        "desc": "A 20-foot-radius cloud of ink extends all around the octopus if it is underwater. The area is heavily obscured for 1 minute, although a significant current can disperse the ink. After releasing the ink, the octopus can use the Dash action as a bonus action.",
+        "attacks": [],
+        "action_type": "ACTION",
+        "order_in_statblock": 1,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      },
+      {
+        "name": "Tentacles",
+        "desc": "Melee Weapon Attack: +5 to hit, reach 15 ft., one target. Hit: 10 (2d6 + 3) bludgeoning damage. If the target is a creature, it is grappled (escape DC 16). Until this grapple ends, the target is restrained, and the octopus can't use its tentacles on another target.",
+        "attacks": [
+          {
+            "name": "Tentacles attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 5,
+            "reach": 15,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": 2,
+            "damage_die_type": "D6",
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Hold Breath",
+        "desc": "While out of water, the octopus can hold its breath for 1 hour."
+      },
+      {
+        "name": "Underwater Camouflage",
+        "desc": "The octopus has advantage on Dexterity (Stealth) checks made while underwater."
+      },
+      {
+        "name": "Water Breathing",
+        "desc": "The octopus can breathe only underwater."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Ocean",
+        "key": "ocean"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_bat",
+    "name": "Bat",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Tiny",
+      "key": "tiny"
+    },
+    "challenge_rating": 0.0,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 5,
+      "unit": "feet",
+      "fly": 30
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 5,
+      "crawl": 2,
+      "hover": false,
+      "fly": 30,
+      "burrow": 0,
+      "climb": 2,
+      "swim": 2
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 12,
+    "armor_detail": "",
+    "hit_points": 1,
+    "hit_dice": "1d4-1",
+    "experience_points": 0,
+    "ability_scores": {
+      "strength": 2,
+      "dexterity": 15,
+      "constitution": 8,
+      "intelligence": 2,
+      "wisdom": 12,
+      "charisma": 4
+    },
+    "modifiers": {
+      "strength": -4,
+      "dexterity": 2,
+      "constitution": -1,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -3
+    },
+    "initiative_bonus": 2,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": -4,
+      "dexterity": 2,
+      "constitution": -1,
+      "intelligence": -4,
+      "wisdom": 1,
+      "charisma": -3
+    },
+    "skill_bonuses": {},
+    "skill_bonuses_all": {
+      "acrobatics": 2,
+      "animal_handling": 1,
+      "arcana": -4,
+      "athletics": -4,
+      "deception": -3,
+      "history": -4,
+      "insight": 1,
+      "intimidation": -3,
+      "investigation": -4,
+      "medicine": 1,
+      "nature": -4,
+      "perception": 1,
+      "performance": -3,
+      "persuasion": -3,
+      "religion": -4,
+      "sleight_of_hand": 2,
+      "stealth": 2,
+      "survival": 1
+    },
+    "passive_perception": 11,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": 60,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Bite",
+        "desc": "Melee Weapon Attack: +0 to hit, reach 5 ft., one creature. Hit: 1 piercing damage.",
+        "attacks": [
+          {
+            "name": "Bite attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 0,
+            "reach": 5,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": true,
+            "damage_die_count": null,
+            "damage_die_type": null,
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Echolocation",
+        "desc": "The bat can't use its blindsight while deafened."
+      },
+      {
+        "name": "Keen Hearing",
+        "desc": "The bat has advantage on Wisdom (Perception) checks that rely on hearing."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Caves",
+        "key": "caves"
+      },
+      {
+        "name": "Forest or Jungle",
+        "key": "forest"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_giant-poisonous-snake",
+    "name": "Giant Poisonous Snake",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Medium",
+      "key": "medium"
+    },
+    "challenge_rating": 0.25,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 30,
+      "unit": "feet",
+      "swim": 30
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 30,
+      "crawl": 15,
+      "hover": false,
+      "fly": 0,
+      "burrow": 0,
+      "climb": 15,
+      "swim": 30
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 14,
+    "armor_detail": "",
+    "hit_points": 11,
+    "hit_dice": "2d8+2",
+    "experience_points": 50,
+    "ability_scores": {
+      "strength": 10,
+      "dexterity": 18,
+      "constitution": 13,
+      "intelligence": 2,
+      "wisdom": 10,
+      "charisma": 3
+    },
+    "modifiers": {
+      "strength": 0,
+      "dexterity": 4,
+      "constitution": 1,
+      "intelligence": -4,
+      "wisdom": 0,
+      "charisma": -4
+    },
+    "initiative_bonus": 4,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": 0,
+      "dexterity": 4,
+      "constitution": 1,
+      "intelligence": -4,
+      "wisdom": 0,
+      "charisma": -4
+    },
+    "skill_bonuses": {
+      "perception": 2
+    },
+    "skill_bonuses_all": {
+      "acrobatics": 4,
+      "animal_handling": 0,
+      "arcana": -4,
+      "athletics": 0,
+      "deception": -4,
+      "history": -4,
+      "insight": 0,
+      "intimidation": -4,
+      "investigation": -4,
+      "medicine": 0,
+      "nature": -4,
+      "perception": 2,
+      "performance": -4,
+      "persuasion": -4,
+      "religion": -4,
+      "sleight_of_hand": 4,
+      "stealth": 4,
+      "survival": 0
+    },
+    "passive_perception": 12,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "",
+      "damage_resistances": [],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "",
+      "condition_immunities": []
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": 10,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Bite",
+        "desc": "Melee Weapon Attack: +6 to hit, reach 10 ft., one target. Hit: 6 (1d4 + 4) piercing damage, and the target must make a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one.",
+        "attacks": [
+          {
+            "name": "Bite attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 6,
+            "reach": 10,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": null,
+            "damage_die_type": null,
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Caves",
+        "key": "caves"
+      },
+      {
+        "name": "Desert",
+        "key": "desert"
+      },
+      {
+        "name": "Forest or Jungle",
+        "key": "forest"
+      },
+      {
+        "name": "Grassland or Plains",
+        "key": "grassland"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      },
+      {
+        "name": "Mountain",
+        "key": "mountain"
+      },
+      {
+        "name": "Ocean",
+        "key": "ocean"
+      },
+      {
+        "name": "Ruins",
+        "key": "ruins"
+      },
+      {
+        "name": "Sewer",
+        "key": "sewer"
+      },
+      {
+        "name": "Swamp or Marsh",
+        "key": "swamp"
+      },
+      {
+        "name": "Tomb",
+        "key": "tomb"
+      },
+      {
+        "name": "Underworld",
+        "key": "underworld"
+      },
+      {
+        "name": "Urban",
+        "key": "urban"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
+  }
+]
