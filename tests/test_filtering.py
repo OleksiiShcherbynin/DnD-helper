@@ -43,3 +43,18 @@ def test_level_8_unlocks_flight_and_cr_1(beasts, names):
 def test_cr_cap_is_never_exceeded_at_any_level(beasts, level):
     cap = wild_shape_cr_cap(level)
     assert all(beast.cr <= cap for beast in legal_wild_shape_beasts(beasts, level))
+
+
+def test_swarms_are_excluded_by_default(beasts, names):
+    """
+    Рой формально проходит по типу и CR, но большинство мастеров превращение
+    в рой не разрешает, а в выдаче рои ещё и вытесняют осмысленные варианты
+    несколькими почти одинаковыми строками.
+    """
+    assert "Swarm of Insects" not in names(legal_wild_shape_beasts(beasts, druid_level=8))
+
+
+def test_swarms_can_be_allowed_explicitly(beasts, names):
+    """Решение спорное, поэтому оно остаётся за игроком, а не зашито намертво."""
+    selection = legal_wild_shape_beasts(beasts, druid_level=8, allow_swarms=True)
+    assert "Swarm of Insects" in names(selection)

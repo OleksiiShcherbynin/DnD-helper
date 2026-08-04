@@ -61,3 +61,18 @@ def test_every_result_explains_itself_without_a_model(beasts):
 
 def test_empty_candidate_list_gives_empty_ranking():
     assert rank_beasts([], parse_situation("в лесу")) == []
+
+
+def test_swim_speed_does_not_count_on_dry_land(beasts):
+    """
+    У гигантского осьминога плавание 60 при ходьбе 10. В подземелье эта
+    скорость бесполезна, поэтому обгонять волка с его 40 он не должен.
+    """
+    order = _order(beasts, "подземелье, надо догнать убегающего")
+    assert order.index("Wolf") < order.index("Giant Octopus")
+
+
+def test_swim_speed_counts_in_water(beasts):
+    """А в озере всё наоборот."""
+    order = _order(beasts, "в озере, надо догнать убегающего")
+    assert order.index("Giant Octopus") < order.index("Wolf")

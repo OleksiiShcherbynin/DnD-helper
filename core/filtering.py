@@ -16,8 +16,17 @@ from core.rules import (
 )
 
 
-def legal_wild_shape_beasts(beasts: Iterable[Beast], druid_level: int) -> list[Beast]:
-    """Звери, в которых друид указанного уровня имеет право превратиться."""
+def legal_wild_shape_beasts(
+    beasts: Iterable[Beast], druid_level: int, *, allow_swarms: bool = False
+) -> list[Beast]:
+    """
+    Звери, в которых друид указанного уровня имеет право превратиться.
+
+    Рои по умолчанию отсекаются. Формально они проходят и по типу, и по CR,
+    но превращение в рой большинство мастеров не разрешает, а в выдаче рои
+    ещё и вытесняют осмысленные варианты несколькими почти одинаковыми
+    строками. Решение спорное, поэтому оставлено переключателем, а не зашито.
+    """
     cap = wild_shape_cr_cap(druid_level)
     if cap is None:
         return []
@@ -31,4 +40,5 @@ def legal_wild_shape_beasts(beasts: Iterable[Beast], druid_level: int) -> list[B
         if beast.cr <= cap
         and (flight_ok or not beast.has_flight)
         and (swimming_ok or not beast.has_swimming)
+        and (allow_swarms or not beast.is_swarm)
     ]

@@ -73,4 +73,5 @@ def parse_beast(raw: dict) -> Beast:
         blindsight=raw.get("blindsight_range") or 0,
         tremorsense=raw.get("tremorsense_range") or 0,
         passive_perception=raw.get("passive_perception") or 0,
+        is_swarm=raw["name"].lower().startswith("swarm of"),
     )

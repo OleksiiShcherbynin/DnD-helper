@@ -1234,5 +1234,241 @@
     "crossreferences": {
       "to": []
     }
+  },
+  {
+    "key": "srd_swarm-of-insects",
+    "name": "Swarm of Insects",
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "type": {
+      "name": "Beast",
+      "key": "beast"
+    },
+    "size": {
+      "name": "Medium",
+      "key": "medium"
+    },
+    "challenge_rating": 0.5,
+    "proficiency_bonus": null,
+    "speed": {
+      "walk": 20,
+      "unit": "feet",
+      "climb": 20
+    },
+    "speed_all": {
+      "unit": "feet",
+      "walk": 20,
+      "crawl": 10,
+      "hover": false,
+      "fly": 0,
+      "burrow": 0,
+      "climb": 20,
+      "swim": 10
+    },
+    "category": "Monsters",
+    "subcategory": null,
+    "alignment": "unaligned",
+    "languages": {
+      "as_string": "",
+      "data": []
+    },
+    "armor_class": 12,
+    "armor_detail": "natural armor",
+    "hit_points": 22,
+    "hit_dice": "5d8",
+    "experience_points": 100,
+    "ability_scores": {
+      "strength": 3,
+      "dexterity": 13,
+      "constitution": 10,
+      "intelligence": 1,
+      "wisdom": 7,
+      "charisma": 1
+    },
+    "modifiers": {
+      "strength": -4,
+      "dexterity": 1,
+      "constitution": 0,
+      "intelligence": -5,
+      "wisdom": -2,
+      "charisma": -5
+    },
+    "initiative_bonus": 1,
+    "saving_throws": {},
+    "saving_throws_all": {
+      "strength": -4,
+      "dexterity": 1,
+      "constitution": 0,
+      "intelligence": -5,
+      "wisdom": -2,
+      "charisma": -5
+    },
+    "skill_bonuses": {},
+    "skill_bonuses_all": {
+      "acrobatics": 1,
+      "animal_handling": -2,
+      "arcana": -5,
+      "athletics": -4,
+      "deception": -5,
+      "history": -5,
+      "insight": -2,
+      "intimidation": -5,
+      "investigation": -5,
+      "medicine": -2,
+      "nature": -5,
+      "perception": -2,
+      "performance": -5,
+      "persuasion": -5,
+      "religion": -5,
+      "sleight_of_hand": 1,
+      "stealth": 1,
+      "survival": -2
+    },
+    "passive_perception": 8,
+    "resistances_and_immunities": {
+      "damage_immunities_display": "",
+      "damage_immunities": [],
+      "damage_resistances_display": "bludgeoning, piercing, slashing",
+      "damage_resistances": [
+        {
+          "name": "Bludgeoning",
+          "key": "bludgeoning"
+        },
+        {
+          "name": "Piercing",
+          "key": "piercing"
+        },
+        {
+          "name": "Slashing",
+          "key": "slashing"
+        }
+      ],
+      "damage_vulnerabilities_display": "",
+      "damage_vulnerabilities": [],
+      "condition_immunities_display": "charmed, frightened, grappled, paralyzed, petrified, prone, restrained, stunned",
+      "condition_immunities": [
+        {
+          "name": "Charmed",
+          "key": "charmed"
+        },
+        {
+          "name": "Frightened",
+          "key": "frightened"
+        },
+        {
+          "name": "Grappled",
+          "key": "grappled"
+        },
+        {
+          "name": "Paralyzed",
+          "key": "paralyzed"
+        },
+        {
+          "name": "Petrified",
+          "key": "petrified"
+        },
+        {
+          "name": "Prone",
+          "key": "prone"
+        },
+        {
+          "name": "Restrained",
+          "key": "restrained"
+        },
+        {
+          "name": "Stunned",
+          "key": "stunned"
+        }
+      ]
+    },
+    "normal_sight_range": 10560,
+    "darkvision_range": null,
+    "blindsight_range": 10,
+    "tremorsense_range": null,
+    "truesight_range": null,
+    "actions": [
+      {
+        "name": "Bites",
+        "desc": "Melee Weapon Attack: +3 to hit, reach 0 ft., one target in the swarm's space. Hit: 10 (4d4) piercing damage, or 5 (2d4) piercing damage if the swarm has half of its hit points or fewer.",
+        "attacks": [
+          {
+            "name": "Bites attack",
+            "attack_type": "WEAPON",
+            "to_hit_mod": 3,
+            "reach": 0,
+            "range": null,
+            "long_range": null,
+            "target_creature_only": false,
+            "damage_die_count": null,
+            "damage_die_type": null,
+            "damage_bonus": null,
+            "damage_type": {
+              "name": "Thunder",
+              "key": "thunder"
+            },
+            "extra_damage_die_count": null,
+            "extra_damage_die_type": null,
+            "extra_damage_bonus": null,
+            "extra_damage_type": null,
+            "distance_unit": "feet"
+          }
+        ],
+        "action_type": "ACTION",
+        "order_in_statblock": 0,
+        "legendary_action_cost": 1,
+        "limited_to_form": null,
+        "usage_limits": null
+      }
+    ],
+    "traits": [
+      {
+        "name": "Swarm",
+        "desc": "The swarm can occupy another creature's space and vice versa, and the swarm can move through any opening large enough for a Tiny insect. The swarm can't regain hit points or gain temporary hit points."
+      }
+    ],
+    "creaturesets": [],
+    "environments": [
+      {
+        "name": "Forest or Jungle",
+        "key": "forest"
+      },
+      {
+        "name": "Grassland or Plains",
+        "key": "grassland"
+      },
+      {
+        "name": "Hills",
+        "key": "hills"
+      },
+      {
+        "name": "Swamp or Marsh",
+        "key": "swamp"
+      },
+      {
+        "name": "Underworld",
+        "key": "underworld"
+      },
+      {
+        "name": "Urban",
+        "key": "urban"
+      }
+    ],
+    "illustration": null,
+    "crossreferences": {
+      "to": []
+    }
   }
 ]

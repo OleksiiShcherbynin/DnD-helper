@@ -33,6 +33,11 @@ class Beast(BaseModel):
     tremorsense: int = 0
     passive_perception: int = 0
 
+    #: Рой. В данных Open5e рой ничем не отличается от обычного зверя —
+    #: type=Beast, size=Medium, category=Monsters, — поэтому признак снимается
+    #: с имени. Других зацепок источник не даёт.
+    is_swarm: bool = False
+
     @property
     def has_flight(self) -> bool:
         return self.speeds.get("fly", 0) > 0
