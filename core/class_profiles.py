@@ -115,6 +115,34 @@ def display_name(class_key: str) -> str:
         return CASTERS[class_key].name
     return NON_CASTER_NAMES.get(class_key.removeprefix("srd_"), class_key)
 
+
+#: Как игроки называют классы. Английские варианты нужны потому, что каталог
+#: английский и половина стола говорит "wizard", а не "волшебник".
+_CLASS_ALIASES: dict[str, str] = {
+    "друид": "srd_druid", "druid": "srd_druid",
+    "волшебник": "srd_wizard", "маг": "srd_wizard", "wizard": "srd_wizard",
+    "жрец": "srd_cleric", "клерик": "srd_cleric", "cleric": "srd_cleric",
+    "бард": "srd_bard", "bard": "srd_bard",
+    "чародей": "srd_sorcerer", "сорк": "srd_sorcerer", "sorcerer": "srd_sorcerer",
+    "колдун": "srd_warlock", "варлок": "srd_warlock", "warlock": "srd_warlock",
+    "следопыт": "srd_ranger", "рейнджер": "srd_ranger", "ranger": "srd_ranger",
+    "воин": "srd_fighter", "файтер": "srd_fighter", "fighter": "srd_fighter",
+    "варвар": "srd_barbarian", "barbarian": "srd_barbarian",
+    "плут": "srd_rogue", "вор": "srd_rogue", "разбойник": "srd_rogue", "rogue": "srd_rogue",
+    "монах": "srd_monk", "monk": "srd_monk",
+    "паладин": "srd_paladin", "paladin": "srd_paladin",
+}
+
+
+def parse_class(text: str) -> str | None:
+    """
+    Ключ класса по названию. Незнакомое слово даёт None, а не догадку.
+
+    Возвращает и кастеров, и остальных: последние нужны как союзники по партии,
+    хотя советовать им нечего.
+    """
+    return _CLASS_ALIASES.get((text or "").strip().lower())
+
 #: Колдун получает Таинственный арканум 6-9 круга отдельно от ячеек Договора,
 #: здесь он не учитывается.
 _PACT_MAX_SPELL_LEVEL = 5
