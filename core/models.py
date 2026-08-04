@@ -6,6 +6,8 @@
 попутно отсекая известные ловушки в данных источника.
 """
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -53,3 +55,36 @@ class Beast(BaseModel):
     @property
     def has_special_senses(self) -> bool:
         return bool(self.darkvision or self.blindsight or self.tremorsense)
+
+
+#: Роль заклинания в партии. По ней ищутся дыры в составе: если контроль уже
+#: закрыт бардом, второму кастеру полезнее взять что-то другое.
+SpellRole = Literal["damage", "healing", "control", "defense", "utility"]
+
+
+class Spell(BaseModel):
+    """Заклинание как кандидат на изучение или подготовку."""
+
+    key: str
+    name: str
+    level: int
+    school: str
+    #: Ключи классов вида srd_wizard — то же соглашение, что в каталоге.
+    classes: list[str] = Field(default_factory=list)
+
+    concentration: bool = False
+    ritual: bool = False
+    casting_time: str = ""
+    duration: str = ""
+
+    role: SpellRole = "utility"
+    #: Кости урона, если источник их дал. Пустая строка — не значит, что урона нет.
+    damage_dice: str = ""
+
+    @property
+    def is_cantrip(self) -> bool:
+        return self.level == 0
+
+    @property
+    def is_bonus_action(self) -> bool:
+        return "bonus" in self.casting_time.lower()
