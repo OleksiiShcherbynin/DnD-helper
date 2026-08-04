@@ -2,45 +2,79 @@
 Дымовой прогон интерфейса.
 
 Проверяет то, что HTTP-ответ Streamlit проверить не может: что скрипт
-действительно отрабатывает без исключений и что поиск вариантов не трогает
-модель. Требует загруженного каталога, поэтому пропускается, если
+отрабатывает без исключений и что поиск вариантов не трогает модель.
+Streamlit отдаёт свою HTML-оболочку даже когда скрипт падает, поэтому
+проверка кодом 200 прошла бы и на полностью сломанном приложении.
+
+Требует загруженного каталога, поэтому пропускается, если
 tools.sync_catalog ещё не запускали.
 """
 
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from adapters.open5e_catalog import DEFAULT_BEASTS_PATH
+from adapters.open5e_catalog import DEFAULT_BEASTS_PATH, DEFAULT_SPELLS_PATH
 
 pytestmark = pytest.mark.skipif(
-    not DEFAULT_BEASTS_PATH.exists(),
+    not (DEFAULT_BEASTS_PATH.exists() and DEFAULT_SPELLS_PATH.exists()),
     reason="каталог не загружен: uv run python -m tools.sync_catalog",
 )
 
 UI = "apps/ui.py"
 
 
+def _app(monkeypatch=None):
+    return AppTest.from_file(UI, default_timeout=30).run()
+
+
 def test_app_starts_without_exceptions():
-    app = AppTest.from_file(UI, default_timeout=30).run()
+    app = _app()
     assert not app.exception, [str(e) for e in app.exception]
 
 
-def test_searching_shows_forms_and_spends_nothing(monkeypatch):
+def test_wildshape_advice_shows_forms_and_spends_nothing(monkeypatch):
     """Без ключа модель недоступна вовсе — а варианты обязаны появиться."""
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
 
-    app = AppTest.from_file(UI, default_timeout=30).run()
+    app = _app()
     app.text_input[0].set_value("болото, преследуем убегающего").run()
 
     assert not app.exception, [str(e) for e in app.exception]
     assert app.subheader, "варианты не показаны"
-    assert "Wild Shape" in app.title[0].value
 
 
-def test_low_level_druid_is_told_it_cannot_transform():
-    app = AppTest.from_file(UI, default_timeout=30).run()
-    app.sidebar.slider[0].set_value(1).run()
-    app.text_input[0].set_value("болото").run()
+def test_switching_class_offers_the_spell_advisor(monkeypatch):
+    """
+    Второй советник появляется в интерфейсе сам, через реестр: файл ui.py
+    не знает про заклинания ничего, кроме того, каким каталогом их кормить.
+    """
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+    app = _app()
+    app.sidebar.selectbox[0].set_value("srd_wizard").run()
 
     assert not app.exception, [str(e) for e in app.exception]
-    assert app.warning, "друид 1 уровня должен получить предупреждение"
+    assert app.subheader, "заклинания не показаны"
+
+
+def test_level_1_druid_gets_spells_but_not_forms():
+    """
+    Превращаться друид научится со 2 уровня, а заклинания у него уже есть.
+    Реестр обязан предложить ровно то, что доступно, а не всё подряд.
+    """
+    app = _app()
+    app.sidebar.slider[0].set_value(1).run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    offered = app.radio[0].options if app.radio else []
+    assert "Во что превратиться" not in offered
+    assert "Какие заклинания взять" in offered
+
+
+def test_a_non_caster_is_told_there_is_nothing_for_them():
+    """Воину советовать нечего: ни форм, ни заклинаний."""
+    app = _app()
+    app.sidebar.selectbox[0].set_value("srd_fighter").run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    assert app.info, "воин должен получить пояснение, а не пустой экран"

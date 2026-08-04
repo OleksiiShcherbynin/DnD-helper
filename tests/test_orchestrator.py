@@ -1,19 +1,23 @@
 """
-Конвейер целиком: правила -> эвристика -> (только по запросу) модель.
+Общий конвейер на примере советника по формам.
 
-Здесь проверяется главное обещание проекта — что инструмент по умолчанию
-не тратит ни одного запроса, а когда тратит, то ровно один и только если
-такого ответа ещё не покупали.
+Проверяется главное обещание проекта: по умолчанию не тратится ни одного
+запроса, а когда тратится — ровно один и только если такого ответа ещё не
+покупали. Конвейер один на всех советников, поэтому эти гарантии
+распространяются и на будущие (см. tests/test_advisor_registry.py).
 """
 
 import pytest
 
 from adapters.llm_cache import LlmCache
-from core.orchestrator import recommend_wild_shape
+from core.advisor import ADVISORS, advise
+from core.request import AdviceRequest
+
+WILDSHAPE = ADVISORS["wildshape"]
 
 
 class CountingExplainer:
-    """Считает обращения. Проверяем именно расход запросов — это и есть поведение."""
+    """Считает обращения. Расход запросов — это и есть проверяемое поведение."""
 
     def __init__(self, answer="потому что быстрый"):
         self.calls = 0
@@ -34,14 +38,15 @@ def cache(tmp_path):
     return LlmCache(tmp_path / "cache.db")
 
 
-def _recommend(beasts, explainer=None, cache=None, **kwargs):
-    return recommend_wild_shape(
-        beasts,
-        druid_level=kwargs.pop("druid_level", 8),
+def _recommend(beasts, explainer=None, cache=None, level=8, **kwargs):
+    request = AdviceRequest(
+        class_key="srd_druid",
+        level=level,
         situation_text=kwargs.pop("situation_text", "болото, догнать убегающего"),
-        explainer=explainer,
-        cache=cache,
-        **kwargs,
+    )
+    return advise(
+        WILDSHAPE, catalog=beasts, request=request,
+        explainer=explainer, cache=cache, **kwargs,
     )
 
 
@@ -59,6 +64,7 @@ def test_numbers_are_available_without_the_model(beasts, cache):
 
     assert result.options, "рейтинг обязан быть даже без модели"
     assert all(option.why for option in result.options)
+    assert all(option.facts["HP"] for option in result.options)
 
 
 def test_explanation_costs_exactly_one_request(beasts, cache):
@@ -81,25 +87,22 @@ def test_repeating_the_same_question_costs_nothing(beasts, cache):
 
 
 def test_a_different_level_is_a_different_question(beasts, cache):
-    """Уровень меняет состав кандидатов, значит и ответ должен покупаться заново."""
+    """Уровень меняет состав кандидатов, значит и ответ покупается заново."""
     explainer = CountingExplainer()
-    _recommend(beasts, explainer, cache, want_explanation=True, druid_level=8)
-    _recommend(beasts, explainer, cache, want_explanation=True, druid_level=4)
+    _recommend(beasts, explainer, cache, want_explanation=True, level=8)
+    _recommend(beasts, explainer, cache, want_explanation=True, level=4)
 
     assert explainer.calls == 2
 
 
 def test_editing_the_prompt_invalidates_paid_answers(beasts, cache, monkeypatch):
-    """
-    Версия промпта входит в ключ: после правки формулировки старые ответы
-    больше не подходят, и кэш обязан их не отдавать.
-    """
-    import core.orchestrator as orchestrator
+    """Версия промпта входит в ключ: после правки формулировки старые ответы не подходят."""
+    import core.advisor as advisor_module
 
     explainer = CountingExplainer()
     _recommend(beasts, explainer, cache, want_explanation=True)
 
-    monkeypatch.setattr(orchestrator, "PROMPT_VERSION", "2")
+    monkeypatch.setattr(advisor_module, "PROMPT_VERSION", "999")
     _recommend(beasts, explainer, cache, want_explanation=True)
 
     assert explainer.calls == 2
@@ -142,7 +145,7 @@ def test_illegal_forms_never_reach_the_prompt(beasts, cache):
             seen["prompt"] = prompt
             return "ok"
 
-    _recommend(beasts, Recording(), cache, want_explanation=True, druid_level=2)
+    _recommend(beasts, Recording(), cache, want_explanation=True, level=2)
 
     assert "Giant Eagle" not in seen["prompt"], "летающий не может попасть к друиду 2 уровня"
     assert "Wolf" in seen["prompt"]

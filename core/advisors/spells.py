@@ -14,7 +14,9 @@ from collections import Counter
 from dataclasses import dataclass
 
 from core.class_profiles import max_spell_level, profile, roles_of
-from core.models import Spell
+from core.models import PartyMember, Spell
+
+__all__ = ["PartyMember", "ScoredSpell", "rank_spells", "role_coverage"]
 
 #: Вклад закрытости роли в оценку. Роль, которую не закрывает никто, ценнее
 #: всего; каждый следующий союзник с той же ролью снижает ценность.
@@ -42,13 +44,13 @@ _WEIGHT_CIRCLE = 0.25
 _WEIGHT_RITUAL = 0.06
 _WEIGHT_BONUS_ACTION = 0.05
 
-
-@dataclass(frozen=True)
-class PartyMember:
-    """Союзник. Класс может быть и кастером (srd_cleric), и обычным (fighter)."""
-
-    class_key: str
-    level: int = 1
+_ROLE_NAMES = {
+    "damage": "урон",
+    "healing": "лечение",
+    "control": "контроль",
+    "defense": "защита",
+    "utility": "утилита",
+}
 
 
 @dataclass(frozen=True)
@@ -81,14 +83,15 @@ def _gap_value(role: str, covered_by: int) -> float:
 
 
 def _describe(spell: Spell, covered_by: int) -> str:
+    role = _ROLE_NAMES.get(spell.role, spell.role)
     if spell.role == "utility":
         gap = "утилита — универсальная польза, не привязана к составу"
     elif covered_by == 0:
-        gap = f"роль «{spell.role}» не закрыта никем в партии"
+        gap = f"роль «{role}» не закрыта никем в партии"
     elif covered_by == 1:
-        gap = f"роль «{spell.role}» закрыта одним союзником"
+        gap = f"роль «{role}» закрыта одним союзником"
     else:
-        gap = f"роль «{spell.role}» уже закрыта ({covered_by} союзника)"
+        gap = f"роль «{role}» уже закрыта ({covered_by} союзника)"
 
     extras = []
     if spell.ritual:
@@ -148,3 +151,69 @@ def rank_spells(
         )
 
     return sorted(scored, key=lambda item: (-item.score, item.spell.name))
+
+
+# ── Подключение к реестру ─────────────────────────────────────────────────────
+
+
+class SpellAdvisor:
+    """Советник по заклинаниям. Реализация протокола core.advisor.Advisor."""
+
+    key = "spells"
+    title = "Какие заклинания взять"
+
+    def applies_to(self, request) -> bool:
+        from core.class_profiles import CASTERS
+
+        return (
+            request.class_key in CASTERS
+            and max_spell_level(request.class_key, request.level) > 0
+        )
+
+    def rank(self, request, catalog):
+        from core.advisor import Option
+
+        scored = rank_spells(
+            catalog,
+            class_key=request.class_key,
+            character_level=request.level,
+            party=request.party,
+        )
+        options = [
+            Option(
+                name=item.spell.name,
+                score=item.score,
+                why=item.why,
+                facts={
+                    "Круг": "заговор" if item.spell.is_cantrip else str(item.spell.level),
+                    "Роль": _ROLE_NAMES.get(item.spell.role, item.spell.role),
+                    "Школа": item.spell.school or "-",
+                    "Концентрация": "да" if item.spell.concentration else "нет",
+                },
+                source=item,
+            )
+            for item in scored
+        ]
+        return options, len(scored), None
+
+    def prompt(self, request, options) -> str:
+        from core.class_profiles import profile
+
+        current = profile(request.class_key)
+        party = ", ".join(m.class_key for m in request.party) or "неизвестен"
+        spells = "\n".join(f"- {option.name}: {option.why}" for option in options)
+        verb = (
+            "выучить навсегда"
+            if current.preparation == "known"
+            else "подготовить на день"
+        )
+        return (
+            f"Ты помогаешь игроку в D&D 5e выбрать заклинания.\n"
+            f"{current.name} {request.level} уровня, ему нужно {verb}.\n"
+            f"Состав партии: {party}.\n\n"
+            f"Опирайся только на список ниже. Не предлагай заклинаний вне его "
+            f"и не придумывай эффектов.\n\n"
+            f"Кандидаты:\n{spells}\n\n"
+            f"Ответь двумя-тремя предложениями: что брать и чем это закрывает "
+            f"дыру в партии."
+        )

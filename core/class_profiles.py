@@ -95,8 +95,25 @@ NON_CASTER_ROLES: dict[str, frozenset[str]] = {
     "barbarian": frozenset({"damage", "defense"}),
     "rogue": frozenset({"damage", "utility"}),
     "monk": frozenset({"damage", "control"}),
+    # Паладин попадает сюда как союзник: список его заклинаний источник не даёт,
+    # но в покрытии ролей партии он участвует.
     "paladin": frozenset({"defense", "healing"}),
 }
+
+NON_CASTER_NAMES: dict[str, str] = {
+    "fighter": "Воин",
+    "barbarian": "Варвар",
+    "rogue": "Плут",
+    "monk": "Монах",
+    "paladin": "Паладин",
+}
+
+
+def display_name(class_key: str) -> str:
+    """Человеческое название класса для интерфейсов."""
+    if class_key in CASTERS:
+        return CASTERS[class_key].name
+    return NON_CASTER_NAMES.get(class_key.removeprefix("srd_"), class_key)
 
 #: Колдун получает Таинственный арканум 6-9 круга отдельно от ячеек Договора,
 #: здесь он не учитывается.

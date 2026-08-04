@@ -6,6 +6,7 @@
 попутно отсекая известные ловушки в данных источника.
 """
 
+from dataclasses import dataclass
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -55,6 +56,22 @@ class Beast(BaseModel):
     @property
     def has_special_senses(self) -> bool:
         return bool(self.darkvision or self.blindsight or self.tremorsense)
+
+
+@dataclass(frozen=True)
+class PartyMember:
+    """
+    Союзник по партии.
+
+    Класс может быть и кастером (srd_cleric), и обычным (fighter): без воина
+    с разбойником картина покрытия ролей была бы неполной.
+
+    Обычный dataclass, а не модель Pydantic: значение собирается в коде, а не
+    приходит из внешних данных, и позиционный вызов тут читается лучше.
+    """
+
+    class_key: str
+    level: int = 1
 
 
 #: Роль заклинания в партии. По ней ищутся дыры в составе: если контроль уже
