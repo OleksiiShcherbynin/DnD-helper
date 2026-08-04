@@ -91,6 +91,27 @@ def test_everything_else_falls_back_to_utility(raw):
     assert parse_spell(raw["Detect Magic"]).role == "utility"
 
 
+def test_damage_types_come_from_the_structured_field(raw):
+    assert parse_spell(raw["Fireball"]).damage_types == frozenset({"fire"})
+
+
+def test_damage_types_are_also_read_from_the_text(raw):
+    """
+    У Acid Splash поле damage_types пусто, как и damage_roll. По полю типы
+    известны у 61 заклинания из 319, вместе с текстом — у 89.
+    """
+    assert raw["Acid Splash"]["damage_types"] == []
+    assert parse_spell(raw["Acid Splash"]).damage_types == frozenset({"acid"})
+
+
+def test_non_damage_spells_report_no_damage_types(raw):
+    """
+    В тексте Dimension Door есть "force damage" за неудачное приземление,
+    но наносить силовой урон партия им не умеет.
+    """
+    assert parse_spell(raw["Dimension Door"]).damage_types == frozenset()
+
+
 def test_auto_hitting_damage_needs_no_saving_throw(raw):
     """
     Magic Missile попадает автоматически: ни спасброска, ни броска атаки,

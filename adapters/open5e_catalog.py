@@ -129,6 +129,16 @@ _DEFENSIVE = re.compile(
     re.I,
 )
 
+#: Типы урона из PHB.
+DAMAGE_TYPES = (
+    "acid", "bludgeoning", "cold", "fire", "force", "lightning", "necrotic",
+    "piercing", "poison", "psychic", "radiant", "slashing", "thunder",
+)
+
+_DAMAGE_TYPE_IN_TEXT = re.compile(
+    r"\b(" + "|".join(DAMAGE_TYPES) + r")\s+damage", re.I
+)
+
 #: Урон, который получает сам заклинатель. В Dimension Door это цена неудачного
 #: приземления, а не боевое применение, причём написано оно как "you and any
 #: creature traveling with you each take 4d6" — поэтому шаблон ищет "you" и
@@ -205,8 +215,29 @@ def _classify_role(raw: dict) -> SpellRole:
     return "utility"
 
 
+def _damage_types(raw: dict, role: SpellRole) -> frozenset[str]:
+    """
+    Типы урона заклинания.
+
+    Структурное поле заполнено у 61 заклинания из 319, вместе с разбором текста
+    получается 89 — поэтому берём объединение. Но только у боевых заклинаний:
+    в тексте Dimension Door есть "force damage" за неудачное приземление, и без
+    этой отсечки партия получила бы умение наносить силовой урон телепортом.
+    """
+    if role != "damage":
+        return frozenset()
+
+    types = {str(name).lower() for name in raw.get("damage_types") or ()}
+    types |= {
+        match.group(1).lower()
+        for match in _DAMAGE_TYPE_IN_TEXT.finditer(raw.get("desc") or "")
+    }
+    return frozenset(types)
+
+
 def parse_spell(raw: dict) -> Spell:
     """Собрать доменное заклинание из сырого ответа Open5e."""
+    role = _classify_role(raw)
     return Spell(
         key=raw["key"],
         name=raw["name"],
@@ -217,8 +248,9 @@ def parse_spell(raw: dict) -> Spell:
         ritual=bool(raw.get("ritual")),
         casting_time=raw.get("casting_time") or "",
         duration=raw.get("duration") or "",
-        role=_classify_role(raw),
+        role=role,
         damage_dice=raw.get("damage_roll") or "",
+        damage_types=_damage_types(raw, role),
     )
 
 

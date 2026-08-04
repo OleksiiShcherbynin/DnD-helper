@@ -97,3 +97,71 @@ def test_unknown_class_does_not_break_the_sheet(classes):
 def test_empty_party_is_all_gaps(classes):
     sheet = build_party_sheet([], classes=classes)
     assert len(sheet.gaps) == 6
+
+
+# ── Умения партии, посчитанные по спискам заклинаний ──────────────────────────
+# Раньше роли брались из таблицы "класс -> что приносит", написанной руками.
+# Она не различала волшебника 1 и 17 уровня, хотя это совершенно разные партии.
+
+
+def _capabilities(classes, spells, *pairs):
+    return build_party_sheet(
+        [PartyMember(key, level) for key, level in pairs],
+        classes=classes,
+        spells=spells,
+    )
+
+
+def test_roles_come_from_spells_the_character_can_actually_reach(classes, spells_fixture):
+    sheet = _capabilities(classes, spells_fixture, ("srd_cleric", 5))
+    assert "Cleric" in sheet.roles["healing"]
+
+
+def test_martials_have_no_healing_and_it_shows(classes, spells_fixture):
+    sheet = _capabilities(
+        classes, spells_fixture, ("srd_barbarian", 5), ("srd_rogue", 5)
+    )
+    assert sheet.roles["healing"] == ()
+    assert "healing" in sheet.missing_roles
+
+
+def test_a_higher_level_caster_brings_damage_types_a_lower_one_cannot(
+    classes, spells_fixture
+):
+    """
+    Огненный шар это 3 круг, и волшебнику 1 уровня он недоступен. Таблица
+    классов эту разницу не видела вовсе, а она решает: против существа с
+    сопротивлением огню важно знать, есть ли у партии что-то ещё.
+    """
+    junior = _capabilities(classes, spells_fixture, ("srd_wizard", 1))
+    senior = _capabilities(classes, spells_fixture, ("srd_wizard", 5))
+
+    assert "fire" not in junior.damage_types
+    assert "fire" in senior.damage_types
+
+
+def test_a_party_of_martials_deals_only_physical_damage(classes, spells_fixture):
+    """
+    Самый ценный вывод здесь отрицательный: сопротивление немагическому оружию
+    встречается постоянно, и партии полезно знать, что обойти его нечем.
+    """
+    sheet = _capabilities(
+        classes, spells_fixture, ("srd_barbarian", 5), ("srd_rogue", 5)
+    )
+    assert sheet.damage_types <= {"bludgeoning", "piercing", "slashing"}
+    assert sheet.only_physical_damage is True
+
+
+def test_a_caster_gives_the_party_a_way_around_physical_resistance(
+    classes, spells_fixture
+):
+    sheet = _capabilities(
+        classes, spells_fixture, ("srd_barbarian", 5), ("srd_wizard", 5)
+    )
+    assert sheet.only_physical_damage is False
+
+
+def test_a_caster_without_spells_yet_still_counts_as_a_fighter(classes, spells_fixture):
+    """Следопыт 1 уровня заклинаний не имеет, но урон партии приносит."""
+    sheet = _capabilities(classes, spells_fixture, ("srd_ranger", 1))
+    assert "Ranger" in sheet.roles["damage"]

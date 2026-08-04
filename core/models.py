@@ -136,6 +136,9 @@ class Spell(BaseModel):
     role: SpellRole = "utility"
     #: Кости урона, если источник их дал. Пустая строка — не значит, что урона нет.
     damage_dice: str = ""
+    #: Типы урона. Заполняются только у заклинаний с ролью "damage": иначе
+    #: побочные упоминания урона добавили бы партии умение, которого у неё нет.
+    damage_types: frozenset[str] = Field(default_factory=frozenset)
 
     @property
     def is_cantrip(self) -> bool:
