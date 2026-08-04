@@ -21,6 +21,12 @@ CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
 EXPECTED_BEASTS = 98
 EXPECTED_SPELLS = 319
 
+#: Проверка соглашения об именовании ключей классов. Правильный ключ —
+#: srd_wizard; на "wizard" API молча возвращает пустоту, и без этой сверки
+#: советник по заклинаниям будущей фазы не нашёл бы ни одного варианта.
+WIZARD_CLASS_KEY = "srd_wizard"
+EXPECTED_WIZARD_SPELLS = 204
+
 
 class CatalogCountMismatch(RuntimeError):
     """Каталог загрузился не в том объёме, что ожидался."""
@@ -94,8 +100,18 @@ def sync() -> None:
 
     spells = _fetch_all("spells", {"document__key": DOCUMENT})
     verify_count("Заклинания", len(spells), EXPECTED_SPELLS)
+
+    # Сверка соглашения об именовании ключей классов на уже скачанных данных,
+    # без лишнего запроса. Ломается тихо, поэтому проверяется явно.
+    wizard = sum(
+        1
+        for spell in spells
+        if any(cls["key"] == WIZARD_CLASS_KEY for cls in spell.get("classes") or ())
+    )
+    verify_count("Заклинания волшебника", wizard, EXPECTED_WIZARD_SPELLS)
+
     path = _write("spells", spells)
-    print(f"Заклинания: {len(spells)} -> {path}")
+    print(f"Заклинания: {len(spells)} -> {path} (из них у волшебника: {wizard})")
 
 
 if __name__ == "__main__":

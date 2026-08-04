@@ -89,6 +89,22 @@ def test_a_different_level_is_a_different_question(beasts, cache):
     assert explainer.calls == 2
 
 
+def test_editing_the_prompt_invalidates_paid_answers(beasts, cache, monkeypatch):
+    """
+    Версия промпта входит в ключ: после правки формулировки старые ответы
+    больше не подходят, и кэш обязан их не отдавать.
+    """
+    import core.orchestrator as orchestrator
+
+    explainer = CountingExplainer()
+    _recommend(beasts, explainer, cache, want_explanation=True)
+
+    monkeypatch.setattr(orchestrator, "PROMPT_VERSION", "2")
+    _recommend(beasts, explainer, cache, want_explanation=True)
+
+    assert explainer.calls == 2
+
+
 def test_exhausted_budget_degrades_instead_of_failing(beasts, tmp_path):
     explainer = CountingExplainer()
     spent = LlmCache(tmp_path / "c.db", daily_budget=0, user_daily_budget=0)
