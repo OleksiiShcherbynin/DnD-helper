@@ -1,0 +1,202 @@
+[
+  {
+    "key": "srd_barbarian",
+    "hit_points": {
+      "hit_dice": "D12",
+      "hit_dice_name": "1D12 per Barbarian level",
+      "hit_points_at_1st_level": "12 + your Constitution modifier",
+      "hit_points_at_higher_levels": "1D12 (or 7) + your Constitution modifier per barbarian level after 1st"
+    },
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "saving_throws": [
+      {
+        "name": "Constitution"
+      },
+      {
+        "name": "Strength"
+      }
+    ],
+    "subclass_of": null,
+    "name": "Barbarian",
+    "hit_dice": "D12",
+    "caster_type": "NONE",
+    "primary_abilities": [],
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_cleric",
+    "hit_points": {
+      "hit_dice": "D8",
+      "hit_dice_name": "1D8 per Cleric level",
+      "hit_points_at_1st_level": "8 + your Constitution modifier",
+      "hit_points_at_higher_levels": "1D8 (or 5) + your Constitution modifier per cleric level after 1st"
+    },
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "saving_throws": [
+      {
+        "name": "Charisma"
+      },
+      {
+        "name": "Wisdom"
+      }
+    ],
+    "subclass_of": null,
+    "name": "Cleric",
+    "hit_dice": "D8",
+    "caster_type": null,
+    "primary_abilities": [],
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_wizard",
+    "hit_points": {
+      "hit_dice": "D6",
+      "hit_dice_name": "1D6 per Wizard level",
+      "hit_points_at_1st_level": "6 + your Constitution modifier",
+      "hit_points_at_higher_levels": "1D6 (or 4) + your Constitution modifier per wizard level after 1st"
+    },
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "saving_throws": [
+      {
+        "name": "Intelligence"
+      },
+      {
+        "name": "Wisdom"
+      }
+    ],
+    "subclass_of": null,
+    "name": "Wizard",
+    "hit_dice": "D6",
+    "caster_type": null,
+    "primary_abilities": [],
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_rogue",
+    "hit_points": {
+      "hit_dice": "D8",
+      "hit_dice_name": "1D8 per Rogue level",
+      "hit_points_at_1st_level": "8 + your Constitution modifier",
+      "hit_points_at_higher_levels": "1D8 (or 5) + your Constitution modifier per rogue level after 1st"
+    },
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "saving_throws": [
+      {
+        "name": "Dexterity"
+      },
+      {
+        "name": "Intelligence"
+      }
+    ],
+    "subclass_of": null,
+    "name": "Rogue",
+    "hit_dice": "D8",
+    "caster_type": null,
+    "primary_abilities": [],
+    "crossreferences": {
+      "to": []
+    }
+  },
+  {
+    "key": "srd_ranger",
+    "hit_points": {
+      "hit_dice": "D10",
+      "hit_dice_name": "1D10 per Ranger level",
+      "hit_points_at_1st_level": "10 + your Constitution modifier",
+      "hit_points_at_higher_levels": "1D10 (or 6) + your Constitution modifier per ranger level after 1st"
+    },
+    "document": {
+      "name": "System Reference Document 5.1",
+      "key": "srd-2014",
+      "type": "SOURCE",
+      "display_name": "5e 2014 Rules",
+      "publisher": {
+        "name": "Wizards of the Coast",
+        "key": "wizards-of-the-coast"
+      },
+      "gamesystem": {
+        "name": "5th Edition 2014",
+        "key": "5e-2014"
+      },
+      "permalink": "https://dnd.wizards.com/resources/systems-reference-document"
+    },
+    "saving_throws": [
+      {
+        "name": "Dexterity"
+      },
+      {
+        "name": "Strength"
+      }
+    ],
+    "subclass_of": null,
+    "name": "Ranger",
+    "hit_dice": "D10",
+    "caster_type": null,
+    "primary_abilities": [],
+    "crossreferences": {
+      "to": []
+    }
+  }
+]

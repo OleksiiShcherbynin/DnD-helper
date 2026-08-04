@@ -58,6 +58,35 @@ class Beast(BaseModel):
         return bool(self.darkvision or self.blindsight or self.tremorsense)
 
 
+#: Короткие коды характеристик. Внутри везде так — с ними сравниваются
+#: спасброски, которые требуют заклинания и способности монстров.
+ABILITIES = ("str", "dex", "con", "int", "wis", "cha")
+
+ABILITY_NAMES = {
+    "str": "Сила",
+    "dex": "Ловкость",
+    "con": "Телосложение",
+    "int": "Интеллект",
+    "wis": "Мудрость",
+    "cha": "Харизма",
+}
+
+
+class ClassData(BaseModel):
+    """
+    То, что источник надёжно знает о классе.
+
+    Прогрессии слотов и формул подготовки здесь нет — их SRD не даёт,
+    они живут в core/class_profiles.py.
+    """
+
+    key: str
+    name: str
+    hit_die: int
+    #: Владения спасбросками, короткими кодами.
+    saving_throws: frozenset[str] = Field(default_factory=frozenset)
+
+
 @dataclass(frozen=True)
 class Character:
     """Персонаж игрока: то, что бот помнит между сообщениями."""

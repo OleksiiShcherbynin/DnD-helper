@@ -27,6 +27,10 @@ EXPECTED_SPELLS = 319
 WIZARD_CLASS_KEY = "srd_wizard"
 EXPECTED_WIZARD_SPELLS = 204
 
+#: 12 базовых классов и 12 подклассов. Нам нужны только базовые: у них лежат
+#: кость хитов и владения спасбросками.
+EXPECTED_CLASSES = 12
+
 
 class CatalogCountMismatch(RuntimeError):
     """Каталог загрузился не в том объёме, что ожидался."""
@@ -112,6 +116,17 @@ def sync() -> None:
 
     path = _write("spells", spells)
     print(f"Заклинания: {len(spells)} -> {path} (из них у волшебника: {wizard})")
+
+    # desc и features у классов огромные, а листу партии не нужны: из класса
+    # берутся только кость хитов и владения спасбросками.
+    classes = [
+        {key: value for key, value in item.items() if key not in ("desc", "features")}
+        for item in _fetch_all("classes", {"document__key": DOCUMENT})
+        if not item.get("subclass_of")
+    ]
+    verify_count("Классы", len(classes), EXPECTED_CLASSES)
+    path = _write("classes", classes)
+    print(f"Классы: {len(classes)} -> {path}")
 
 
 if __name__ == "__main__":

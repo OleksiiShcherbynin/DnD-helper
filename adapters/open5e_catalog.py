@@ -14,12 +14,13 @@ import json
 from pathlib import Path
 import re
 
-from core.models import Beast, Spell, SpellRole
+from core.models import Beast, ClassData, Spell, SpellRole
 
 #: Куда tools/sync_catalog.py кладёт загруженный каталог.
 _CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
 DEFAULT_BEASTS_PATH = _CATALOG_DIR / "beasts.json"
 DEFAULT_SPELLS_PATH = _CATALOG_DIR / "spells.json"
+DEFAULT_CLASSES_PATH = _CATALOG_DIR / "classes.json"
 
 
 class CatalogMissing(FileNotFoundError):
@@ -221,6 +222,33 @@ def parse_spell(raw: dict) -> Spell:
     )
 
 
+# ── Классы ────────────────────────────────────────────────────────────────────
+
+
+def _ability_code(name: str) -> str:
+    """"Constitution" -> "con". Источник пишет полностью, внутри удобнее коротко."""
+    return name.strip().lower()[:3]
+
+
+def parse_class_data(raw: dict) -> ClassData:
+    """
+    Собрать данные о классе.
+
+    Берём только то, чему источник можно верить: кость хитов и владения
+    спасбросками — все двенадцать наборов сверены с PHB и совпадают.
+    Поле caster_type у него почти везде пустое, поэтому не используется.
+    """
+    return ClassData(
+        key=raw["key"],
+        name=raw["name"],
+        # В источнике "D12" строкой, а считать по ней придётся числом.
+        hit_die=int(str(raw["hit_dice"]).lstrip("Dd")),
+        saving_throws=frozenset(
+            _ability_code(save["name"]) for save in raw.get("saving_throws") or ()
+        ),
+    )
+
+
 def _load_raw(path: Path) -> list[dict]:
     if not path.exists():
         raise CatalogMissing(
@@ -244,3 +272,9 @@ def load_spells(path: Path | str | None = None) -> list[Spell]:
         parse_spell(item)
         for item in _load_raw(Path(path) if path is not None else DEFAULT_SPELLS_PATH)
     ]
+
+
+def load_classes(path: Path | str | None = None) -> dict[str, ClassData]:
+    """Данные о классах, по ключу класса."""
+    raw = _load_raw(Path(path) if path is not None else DEFAULT_CLASSES_PATH)
+    return {item["key"]: parse_class_data(item) for item in raw}
