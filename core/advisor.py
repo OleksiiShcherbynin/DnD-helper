@@ -10,6 +10,7 @@
 протоколом. Тест с выдуманным советником по фитам проверяет, что это правда.
 """
 
+import logging
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
@@ -17,6 +18,8 @@ from typing import Any, Protocol
 from core.ports import CacheProtocol, ExplainerProtocol
 from core.request import AdviceRequest
 from core.situation import Situation
+
+logger = logging.getLogger(__name__)
 
 #: Входит в ключ кэша: правка формулировки промпта обязана обесценить старые
 #: ответы, иначе к новому вопросу подошёл бы ответ на старый.
@@ -143,6 +146,10 @@ def advise(
     try:
         answer = explainer.explain(advisor.prompt(request, options))
     except Exception:
+        # Игроку сбой не показываем — у него есть рейтинг с цифрами. Но в журнал
+        # он обязан попасть: иначе неверная настройка модели неотличима от
+        # исчерпанного лимита, и причину искать не по чему.
+        logger.warning("модель недоступна, отдаём рейтинг без объяснения", exc_info=True)
         return base
 
     if cache is not None:

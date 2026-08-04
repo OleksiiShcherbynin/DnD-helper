@@ -125,6 +125,22 @@ def test_broken_model_degrades_instead_of_failing(beasts, cache):
     assert result.options, "за столом падать нельзя"
 
 
+def test_broken_model_is_logged_even_though_it_is_hidden_from_the_player(
+    beasts, cache, caplog
+):
+    """
+    Игроку сбой модели показывать незачем — у него есть рейтинг. Но молчать
+    совсем нельзя: без записи в журнале неверная настройка выглядит ровно как
+    исчерпанный лимит, и искать причину не по чему.
+    """
+    with caplog.at_level("WARNING"):
+        _recommend(beasts, BrokenExplainer(), cache, want_explanation=True)
+
+    assert any("модель недоступна" in record.message for record in caplog.records), (
+        f"причина не попала в журнал: {[r.message for r in caplog.records]}"
+    )
+
+
 def test_missing_model_degrades_instead_of_failing(beasts, cache):
     """Ключа Gemini нет вовсе — приложение обязано работать."""
     result = _recommend(beasts, None, cache, want_explanation=True)
