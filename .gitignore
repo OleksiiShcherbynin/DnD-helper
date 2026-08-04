@@ -1,0 +1,21 @@
+# Секреты — ключ Gemini и прочее
+.env
+.env.local
+
+# Окружение
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Каталог SRD тянется скриптом tools/sync_catalog.py, в истории ему не место
+data/catalog/
+
+# Локальная база: кэш ответов LLM, счётчики бюджета, персонажи
+*.db
+*.sqlite3
+
+# Инструменты
+.pytest_cache/
+.ruff_cache/
+.streamlit/secrets.toml
