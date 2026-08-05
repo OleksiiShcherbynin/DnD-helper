@@ -95,6 +95,35 @@ def test_party_sheet_is_shown_even_to_a_class_with_no_advice():
     assert app.info, "и при этом должно быть сказано, что советов нет"
 
 
+def _widget_by_label(widgets, label):
+    return next(widget for widget in widgets if widget.label == label)
+
+
+def test_encounter_calculator_gives_a_verdict():
+    """Один гоблин против друида 6 уровня — очевидно не угроза."""
+    app = _app()
+    _widget_by_label(app.multiselect, "Кто против вас").set_value(["Goblin"]).run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    verdicts = " ".join(str(m.value) for m in list(app.success) + list(app.error))
+    assert "Лёгкая" in verdicts
+
+
+def test_a_hopeless_fight_is_called_hopeless():
+    """
+    Молодой красный дракон против одинокого друида 6 уровня — вердикт обязан
+    быть недвусмысленным, иначе калькулятор бесполезен там, где нужнее всего.
+    """
+    app = _app()
+    _widget_by_label(app.multiselect, "Кто против вас").set_value(
+        ["Young Red Dragon"]
+    ).run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    assert app.error, "смертельный бой должен показываться тревожно"
+    assert "мертельно" in " ".join(str(m.value) for m in app.error)
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

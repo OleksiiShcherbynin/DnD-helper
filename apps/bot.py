@@ -32,9 +32,10 @@ from telegram.ext import (
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
 from adapters.open5e_catalog import (
+    BEAST_TYPE,
     CatalogMissing,
-    load_beasts,
     load_classes,
+    load_creatures,
     load_spells,
 )
 from adapters.sqlite_storage import Storage
@@ -44,8 +45,10 @@ from apps.formatting import (
     format_party,
     format_sheet,
     parse_character,
+    parse_enemies,
 )
 from core.advisor import ADVISORS, advise
+from core.encounter import estimate_encounter
 from core.models import PartyMember
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
@@ -65,7 +68,8 @@ HELP = (
     "/party join КОД — вступить в чужую партию\n\n"
     "<b>Как спрашивать</b>\n"
     "Просто напишите обстановку: <i>болото, преследуем убегающего</i>\n"
-    "/spells — что взять из заклинаний\n\n"
+    "/spells — что взять из заклинаний\n"
+    "/fight goblin 4, ogre — драться или бежать\n\n"
     "Поиск вариантов бесплатный. Кнопка «Объяснить» тратит один запрос к модели."
 )
 
@@ -74,7 +78,12 @@ class Deps:
     """Общие для всех хэндлеров ресурсы. Собираются один раз при старте."""
 
     def __init__(self) -> None:
-        self.catalogs = {"beasts": load_beasts(), "spells": load_spells()}
+        creatures = load_creatures()
+        self.catalogs = {
+            "beasts": [c for c in creatures if c.creature_type == BEAST_TYPE],
+            "spells": load_spells(),
+            "creatures": creatures,
+        }
         self.classes = load_classes()
         self.storage = Storage(DATA_DIR / "copilot.db")
         self.cache = LlmCache(
@@ -249,6 +258,56 @@ async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, *, preferr
     await update.message.reply_html(format_advice(advice), reply_markup=keyboard)
 
 
+async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Оценить бой: /fight goblin 4, ogre"""
+    deps, user_id = _deps(context), _user_id(update)
+
+    character = deps.storage.get_character(user_id)
+    if character is None:
+        await update.message.reply_html(
+            "Сначала задайте персонажа: <code>/me друид 6</code>"
+        )
+        return
+
+    by_name = {creature.name: creature for creature in deps.catalogs["creatures"]}
+    resolved, unknown = parse_enemies(" ".join(context.args), list(by_name))
+
+    if not resolved:
+        await update.message.reply_html(
+            "Не понял, кто против вас. Пример: <code>/fight goblin 4, ogre</code>"
+        )
+        return
+
+    party = [
+        PartyMember(character.class_key, character.level),
+        *deps.storage.party_members(user_id),
+    ]
+    result = estimate_encounter(
+        party,
+        [(by_name[name], count) for name, count in resolved],
+        classes=deps.classes,
+    )
+
+    listing = ", ".join(f"{name} ×{count}" for name, count in resolved)
+    lines = [
+        f"<b>{html.escape(result.verdict.capitalize())}</b>",
+        html.escape(result.advice),
+        "",
+        f"Против вас: {html.escape(listing)}",
+        f"Вас: {len(party)} чел., ~{result.party.hp} HP, урон ~{result.party.damage_per_round}",
+        f"Их: {result.enemies.hp} HP, урон {result.enemies.damage_per_round}",
+    ]
+    if unknown:
+        lines.append(
+            "\n⚠️ Не нашёл и <b>не учёл</b>: " + html.escape(", ".join(unknown))
+        )
+    lines.append(
+        "\n<i>Партия оценена по классам и уровням, противники — по статблокам. "
+        "Способности со спасброском (дыхание дракона) не учтены.</i>"
+    )
+    await update.message.reply_html("\n".join(lines))
+
+
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await _answer(update, context, preferred=None)
 
@@ -305,6 +364,7 @@ def build_handlers() -> list:
         CommandHandler("party", party),
         CommandHandler("spells", spells),
         CommandHandler("forms", forms),
+        CommandHandler("fight", fight),
         CallbackQueryHandler(explain, pattern="^explain$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_text),
     ]

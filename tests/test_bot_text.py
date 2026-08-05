@@ -14,6 +14,7 @@ from apps.formatting import (
     format_party,
     format_sheet,
     parse_character,
+    parse_enemies,
 )
 from core.party_sheet import build_party_sheet
 from core.advisor import ADVISORS, advise
@@ -68,6 +69,45 @@ def test_party_listing_names_everyone():
 
 def test_empty_party_says_so_instead_of_showing_nothing():
     assert format_party([]).strip(), "пустой ответ бот отправить не может"
+
+
+CATALOG_NAMES = ["Goblin", "Orc", "Ogre", "Young Red Dragon", "Giant Spider"]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("goblin 4", [("Goblin", 4)]),
+    ("4 goblin", [("Goblin", 4)]),
+    ("goblin", [("Goblin", 1)]),
+    ("GOBLIN x3", [("Goblin", 3)]),
+    ("goblin 4, ogre", [("Goblin", 4), ("Ogre", 1)]),
+])
+def test_enemy_line_is_parsed(text, expected):
+    resolved, unknown = parse_enemies(text, CATALOG_NAMES)
+    assert resolved == expected
+    assert unknown == []
+
+
+def test_partial_names_are_resolved():
+    """За столом никто не напечатает Young Red Dragon целиком."""
+    resolved, unknown = parse_enemies("young red 1", CATALOG_NAMES)
+    assert resolved == [("Young Red Dragon", 1)]
+
+
+def test_unknown_enemy_is_reported_not_swallowed():
+    """
+    Промолчать про нераспознанного противника опаснее, чем не посчитать бой:
+    игрок решит, что дракон учтён, а его в расчёте нет.
+    """
+    resolved, unknown = parse_enemies("goblin 2, василиск", CATALOG_NAMES)
+    assert resolved == [("Goblin", 2)]
+    assert unknown == ["василиск"]
+
+
+def test_ambiguous_prefix_is_not_guessed():
+    """"giant" подходит и пауку, и другим — гадать нельзя."""
+    resolved, unknown = parse_enemies("giant", CATALOG_NAMES + ["Giant Eagle"])
+    assert resolved == []
+    assert unknown == ["giant"]
 
 
 def _sheet(class_data, spells, *pairs):

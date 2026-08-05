@@ -20,13 +20,15 @@ from dotenv import load_dotenv
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
 from adapters.open5e_catalog import (
+    BEAST_TYPE,
     CatalogMissing,
-    load_beasts,
     load_classes,
+    load_creatures,
     load_spells,
 )
 from core.advisor import ADVISORS, advise
 from core.class_profiles import CASTERS, NON_CASTER_NAMES, display_name
+from core.encounter import estimate_encounter
 from core.models import ABILITY_NAMES, ROLE_NAMES, PartyMember
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
@@ -54,7 +56,12 @@ st.set_page_config(page_title="Tabletop Copilot", page_icon="🐺", layout="cent
 
 @st.cache_resource
 def get_catalogs():
-    return {"beasts": load_beasts(), "spells": load_spells()}
+    creatures = load_creatures()
+    return {
+        "beasts": [c for c in creatures if c.creature_type == BEAST_TYPE],
+        "spells": load_spells(),
+        "creatures": creatures,
+    }
 
 
 @st.cache_resource
@@ -167,6 +174,57 @@ with st.expander("📋 Лист партии — что отряд умеет и
         st.warning(
             "Партия наносит только физический урон: сопротивление немагическому "
             "оружию обойти нечем."
+        )
+
+with st.expander("⚔️ Опасность боя — драться или бежать"):
+    st.caption(
+        "Считается по боевой математике, а не по таблицам опыта: сколько раундов "
+        "нужно, чтобы их убить, и сколько вы продержитесь. Противники берутся "
+        "точно из статблоков, партия оценивается по классам и уровням."
+    )
+
+    by_name = {creature.name: creature for creature in catalogs["creatures"]}
+    chosen_enemies = st.multiselect("Кто против вас", sorted(by_name))
+
+    enemies = []
+    if chosen_enemies:
+        columns = st.columns(min(4, len(chosen_enemies)))
+        for index, name in enumerate(chosen_enemies):
+            count = columns[index % len(columns)].number_input(
+                name, min_value=1, max_value=99, value=1, key=f"count_{name}"
+            )
+            enemies.append((by_name[name], int(count)))
+
+    if not enemies:
+        st.info("Выберите противников — хотя бы одного.")
+    else:
+        fight = estimate_encounter(
+            [PartyMember(class_key, level), *request.party],
+            enemies,
+            classes=class_data,
+        )
+
+        banner = {
+            "лёгкая": st.success,
+            "по силам": st.success,
+            "тяжёлая": st.warning,
+            "смертельно": st.error,
+        }.get(fight.verdict, st.info)
+        banner(f"**{fight.verdict.capitalize()}.** {fight.advice}")
+
+        left, right = st.columns(2)
+        left.metric("Раундов, чтобы убить", fight.rounds_to_win or "—")
+        right.metric("Раундов, пока держитесь", fight.rounds_to_fall or "—")
+
+        st.caption(
+            f"Партия: {fight.party.hp} HP, AC ≈{fight.party.armour_class}, "
+            f"урон ≈{fight.party.damage_per_round} — **оценка** по классам и уровням.\n\n"
+            f"Противники: {fight.enemies.hp} HP, AC {fight.enemies.armour_class}, "
+            f"урон {fight.enemies.damage_per_round} — по статблокам."
+        )
+        st.caption(
+            "Не учитываются: дыхание дракона и прочие способности со спасброском, "
+            "лечение, контроль и отступление. Считайте это нижней границей опасности."
         )
 
 # Интерфейс не знает про конкретных советников — он спрашивает у реестра.

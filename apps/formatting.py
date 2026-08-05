@@ -45,6 +45,51 @@ def parse_character(text: str) -> tuple[str, int] | None:
     return class_key, level
 
 
+#: "goblin 4", "4 goblin", "goblin x4" — число где угодно, и его может не быть.
+_ENEMY_COUNT = re.compile(r"(?:^|\s)x?(\d{1,2})(?:\s|$)")
+
+
+def parse_enemies(
+    text: str, catalog_names: list[str]
+) -> tuple[list[tuple[str, int]], list[str]]:
+    """
+    Разобрать строку вида "goblin 4, ogre" в пары «название, сколько».
+
+    Возвращает разобранное и **отдельно нераспознанное**. Промолчать про
+    непонятого противника опаснее, чем не посчитать бой вовсе: игрок решит,
+    что дракон учтён, а его в расчёте нет.
+
+    Название ищется по началу слов: за столом никто не печатает
+    "Young Red Dragon" целиком. Неоднозначный кусок не угадывается — если под
+    "giant" подходит и паук, и орёл, честнее сказать, что не понял.
+    """
+    resolved: list[tuple[str, int]] = []
+    unknown: list[str] = []
+
+    for chunk in (text or "").split(","):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+
+        count_match = _ENEMY_COUNT.search(chunk)
+        count = int(count_match.group(1)) if count_match else 1
+        name_part = _ENEMY_COUNT.sub(" ", chunk).strip().lower()
+        if not name_part:
+            unknown.append(chunk)
+            continue
+
+        matches = [
+            name for name in catalog_names if name.lower().startswith(name_part)
+        ]
+        if len(matches) != 1:
+            unknown.append(name_part)
+            continue
+
+        resolved.append((matches[0], count))
+
+    return resolved, unknown
+
+
 def format_character(character: Character) -> str:
     lines = [f"<b>{html.escape(display_name(character.class_key))}</b>, {character.level} уровень"]
     if character.party_code:

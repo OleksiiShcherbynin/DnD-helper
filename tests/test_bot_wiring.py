@@ -31,7 +31,7 @@ def test_handler_table_covers_the_documented_commands():
         if isinstance(handler, CommandHandler)
         for command in handler.commands
     }
-    assert {"start", "me", "party", "spells"} <= commands
+    assert {"start", "me", "party", "spells", "fight"} <= commands
 
 
 def test_free_text_from_a_druid_goes_to_the_forms_advisor():
