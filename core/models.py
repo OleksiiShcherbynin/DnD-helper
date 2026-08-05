@@ -117,6 +117,14 @@ class PartyMember:
 #: закрыт бардом, второму кастеру полезнее взять что-то другое.
 SpellRole = Literal["damage", "healing", "control", "defense", "utility"]
 
+ROLE_NAMES = {
+    "damage": "урон",
+    "healing": "лечение",
+    "control": "контроль",
+    "defense": "защита",
+    "utility": "утилита",
+}
+
 
 class Spell(BaseModel):
     """Заклинание как кандидат на изучение или подготовку."""

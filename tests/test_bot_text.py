@@ -8,7 +8,14 @@
 
 import pytest
 
-from apps.formatting import format_advice, format_character, format_party, parse_character
+from apps.formatting import (
+    format_advice,
+    format_character,
+    format_party,
+    format_sheet,
+    parse_character,
+)
+from core.party_sheet import build_party_sheet
 from core.advisor import ADVISORS, advise
 from core.class_profiles import parse_class
 from core.models import Character, PartyMember
@@ -61,6 +68,52 @@ def test_party_listing_names_everyone():
 
 def test_empty_party_says_so_instead_of_showing_nothing():
     assert format_party([]).strip(), "пустой ответ бот отправить не может"
+
+
+def _sheet(class_data, spells, *pairs):
+    return build_party_sheet(
+        [PartyMember(key, level) for key, level in pairs],
+        classes=class_data,
+        spells=spells,
+    )
+
+
+def test_sheet_message_names_the_dangerous_gap(class_data, spells_fixture):
+    """Дыра в спасбросках — самое ценное в листе, она обязана быть заметна."""
+    sheet = _sheet(class_data, spells_fixture, ("srd_barbarian", 5), ("srd_rogue", 5))
+    text = format_sheet(sheet)
+
+    assert "Мудрост" in text
+    assert "Hold Person" in text
+
+
+def test_sheet_message_warns_about_physical_only_damage(class_data, spells_fixture):
+    sheet = _sheet(class_data, spells_fixture, ("srd_barbarian", 5), ("srd_rogue", 5))
+    assert "физическ" in format_sheet(sheet).lower()
+
+
+def test_sheet_message_stays_quiet_when_there_is_nothing_to_warn_about(
+    class_data, spells_fixture
+):
+    """
+    Лист без предупреждений не должен придумывать их: если партия закрыта,
+    сообщение говорит об этом, а не перечисляет шесть пунктов «всё хорошо».
+    """
+    sheet = _sheet(
+        class_data, spells_fixture,
+        ("srd_barbarian", 5), ("srd_cleric", 5), ("srd_rogue", 5), ("srd_wizard", 5),
+    )
+    text = format_sheet(sheet)
+
+    assert "Hold Person" not in text
+    assert sheet.covered_saves
+
+
+def test_sheet_message_escapes_html(class_data, spells_fixture):
+    sheet = _sheet(class_data, spells_fixture, ("srd_cleric", 5))
+    assert "<" not in format_sheet(sheet).replace("<b>", "").replace("</b>", "").replace(
+        "<i>", ""
+    ).replace("</i>", "")
 
 
 def test_advice_message_carries_the_numbers(beasts):

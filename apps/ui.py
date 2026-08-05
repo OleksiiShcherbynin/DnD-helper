@@ -19,10 +19,16 @@ from dotenv import load_dotenv
 
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
-from adapters.open5e_catalog import CatalogMissing, load_beasts, load_spells
+from adapters.open5e_catalog import (
+    CatalogMissing,
+    load_beasts,
+    load_classes,
+    load_spells,
+)
 from core.advisor import ADVISORS, advise
 from core.class_profiles import CASTERS, NON_CASTER_NAMES, display_name
-from core.models import PartyMember
+from core.models import ABILITY_NAMES, ROLE_NAMES, PartyMember
+from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
 load_dotenv()
@@ -38,6 +44,11 @@ st.set_page_config(page_title="Tabletop Copilot", page_icon="🐺", layout="cent
 @st.cache_resource
 def get_catalogs():
     return {"beasts": load_beasts(), "spells": load_spells()}
+
+
+@st.cache_resource
+def get_classes():
+    return load_classes()
 
 
 @st.cache_resource
@@ -58,6 +69,7 @@ st.title("🐺 Tabletop Copilot")
 
 try:
     catalogs = get_catalogs()
+    class_data = get_classes()
 except CatalogMissing as error:
     st.error(str(error))
     st.stop()
@@ -102,6 +114,49 @@ request = AdviceRequest(
     top_n=top_n,
     allow_swarms=allow_swarms,
 )
+
+sheet = build_party_sheet(
+    [PartyMember(class_key, level), *request.party],
+    classes=class_data,
+    spells=catalogs["spells"],
+)
+
+with st.expander("📋 Лист партии — что отряд умеет и чего ему не хватает"):
+    st.caption(
+        "Считается вся партия вместе с вами. Спасброски решают, кого выключают "
+        "из боя одним броском, поэтому дыра в них дороже остальных."
+    )
+
+    saves = st.columns(6)
+    for column, (ability, holders) in zip(saves, sheet.saves.items()):
+        column.metric(
+            ABILITY_NAMES[ability],
+            "✅" if holders else "—",
+            help=", ".join(holders) if holders else "не владеет никто",
+        )
+
+    covered_roles = {
+        ROLE_NAMES.get(role, role): len(names)
+        for role, names in sheet.roles.items()
+        if names
+    }
+    if covered_roles:
+        st.write(
+            "**Умения:** "
+            + ", ".join(f"{role} ({count})" for role, count in covered_roles.items())
+        )
+    st.write(f"**Типов урона:** {len(sheet.damage_types)} из 13")
+
+    for gap in sheet.gaps:
+        st.warning(gap.text)
+    if sheet.missing_roles:
+        missing = ", ".join(ROLE_NAMES.get(role, role) for role in sheet.missing_roles)
+        st.warning(f"Никто не закрывает: {missing}.")
+    if sheet.only_physical_damage:
+        st.warning(
+            "Партия наносит только физический урон: сопротивление немагическому "
+            "оружию обойти нечем."
+        )
 
 # Интерфейс не знает про конкретных советников — он спрашивает у реестра.
 available = [advisor for advisor in ADVISORS.values() if advisor.applies_to(request)]

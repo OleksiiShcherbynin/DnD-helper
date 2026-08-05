@@ -71,6 +71,30 @@ def test_level_1_druid_gets_spells_but_not_forms():
     assert "Какие заклинания взять" in offered
 
 
+def test_party_sheet_warns_about_uncovered_saves():
+    """
+    Лист показывается до выбора советника, поэтому он полезен даже тому, кому
+    советовать нечего. Волшебник в одиночку не тянет Ловкость — это должно
+    быть видно, а не спрятано.
+    """
+    app = _app()
+    app.sidebar.selectbox[0].set_value("srd_wizard").run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    warnings = " ".join(str(w.value) for w in app.warning)
+    assert "Ловкость" in warnings
+
+
+def test_party_sheet_is_shown_even_to_a_class_with_no_advice():
+    """Воину советовать нечего, но состав отряда ему всё равно полезен."""
+    app = _app()
+    app.sidebar.selectbox[0].set_value("srd_fighter").run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    assert app.warning, "лист партии не отрисовался"
+    assert app.info, "и при этом должно быть сказано, что советов нет"
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

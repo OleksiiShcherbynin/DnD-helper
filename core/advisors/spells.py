@@ -14,6 +14,7 @@ from collections import Counter
 from dataclasses import dataclass
 
 from core.class_profiles import max_spell_level, profile, roles_of
+from core.models import ROLE_NAMES as _ROLE_NAMES
 from core.models import PartyMember, Spell
 
 __all__ = ["PartyMember", "ScoredSpell", "rank_spells", "role_coverage"]
@@ -43,14 +44,6 @@ _WEIGHT_COVERAGE = 0.60
 _WEIGHT_CIRCLE = 0.25
 _WEIGHT_RITUAL = 0.06
 _WEIGHT_BONUS_ACTION = 0.05
-
-_ROLE_NAMES = {
-    "damage": "урон",
-    "healing": "лечение",
-    "control": "контроль",
-    "defense": "защита",
-    "utility": "утилита",
-}
 
 
 @dataclass(frozen=True)

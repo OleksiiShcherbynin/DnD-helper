@@ -14,7 +14,8 @@ import re
 
 from core.advisor import Advice
 from core.class_profiles import display_name, parse_class
-from core.models import Character, PartyMember
+from core.models import ABILITY_NAMES, ROLE_NAMES, Character, PartyMember
+from core.party_sheet import PartySheet
 
 #: Уровни персонажа в D&D 5e.
 _MIN_LEVEL, _MAX_LEVEL = 1, 20
@@ -62,6 +63,58 @@ def format_party(members: list[PartyMember]) -> str:
         for member in members
     )
     return f"<b>Союзники:</b>\n{listing}"
+
+
+def format_sheet(sheet: PartySheet) -> str:
+    """
+    Собрать сводку по отряду.
+
+    Предупреждения не выдумываются: если партия всё закрывает, блок про дыры
+    просто не появляется. Список из шести пунктов «всё хорошо» обесценил бы
+    тот единственный пункт, ради которого лист и читают.
+    """
+    roster = ", ".join(
+        f"{html.escape(display_name(member.class_key))} {member.level}"
+        for member in sheet.members
+    )
+    lines = [f"<b>Лист партии</b>\n{html.escape(roster) if roster else 'Пусто'}"]
+
+    covered = [ABILITY_NAMES[ability] for ability in sheet.covered_saves]
+    lines.append(
+        "\n<b>Спасброски закрыты:</b> "
+        + (html.escape(", ".join(covered)) if covered else "ничего")
+    )
+
+    filled = {
+        ROLE_NAMES.get(role, role): names
+        for role, names in sheet.roles.items()
+        if names
+    }
+    if filled:
+        listing = ", ".join(
+            f"{html.escape(role)} ({len(names)})" for role, names in filled.items()
+        )
+        lines.append(f"<b>Умения:</b> {listing}")
+
+    lines.append(f"<b>Типов урона:</b> {len(sheet.damage_types)} из 13")
+
+    warnings = [f"⚠️ {html.escape(gap.text)}" for gap in sheet.gaps]
+    if sheet.missing_roles:
+        missing = ", ".join(ROLE_NAMES.get(role, role) for role in sheet.missing_roles)
+        warnings.append(f"⚠️ Никто не закрывает: {html.escape(missing)}.")
+    if sheet.only_physical_damage:
+        warnings.append(
+            "⚠️ Партия наносит только физический урон: сопротивление немагическому "
+            "оружию обойти нечем."
+        )
+    if sheet.unknown_classes:
+        unknown = ", ".join(html.escape(key) for key in sheet.unknown_classes)
+        warnings.append(f"⚠️ Не нашёл в справочнике: {unknown}.")
+
+    if warnings:
+        lines.append("\n" + "\n".join(warnings))
+
+    return "\n".join(lines)
 
 
 def format_advice(advice: Advice) -> str:

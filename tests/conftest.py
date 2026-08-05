@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from adapters.open5e_catalog import parse_beast, parse_spell
+from adapters.open5e_catalog import parse_beast, parse_class_data, parse_spell
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 FIXTURE = FIXTURES / "beasts_sample.json"
@@ -32,6 +32,13 @@ def spells_fixture():
     """Срез заклинаний SRD, подобранный по ловушкам классификации ролей."""
     raw = json.loads((FIXTURES / "spells_sample.json").read_text(encoding="utf-8"))
     return [parse_spell(item) for item in raw]
+
+
+@pytest.fixture(scope="session")
+def class_data():
+    """Данные о классах: кость хитов и владения спасбросками из SRD."""
+    raw = json.loads((FIXTURES / "classes_sample.json").read_text(encoding="utf-8"))
+    return {item["key"]: parse_class_data(item) for item in raw}
 
 
 @pytest.fixture(scope="session")

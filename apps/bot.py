@@ -31,10 +31,23 @@ from telegram.ext import (
 
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
-from adapters.open5e_catalog import CatalogMissing, load_beasts, load_spells
+from adapters.open5e_catalog import (
+    CatalogMissing,
+    load_beasts,
+    load_classes,
+    load_spells,
+)
 from adapters.sqlite_storage import Storage
-from apps.formatting import format_advice, format_character, format_party, parse_character
+from apps.formatting import (
+    format_advice,
+    format_character,
+    format_party,
+    format_sheet,
+    parse_character,
+)
 from core.advisor import ADVISORS, advise
+from core.models import PartyMember
+from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
 load_dotenv()
@@ -62,6 +75,7 @@ class Deps:
 
     def __init__(self) -> None:
         self.catalogs = {"beasts": load_beasts(), "spells": load_spells()}
+        self.classes = load_classes()
         self.storage = Storage(DATA_DIR / "copilot.db")
         self.cache = LlmCache(
             DATA_DIR / "copilot.db",
@@ -175,7 +189,29 @@ async def party(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_html("Вышли из партии.")
         return
 
-    await update.message.reply_html(format_party(deps.storage.party_members(user_id)))
+    # Без аргументов показываем сводку по отряду. Лист считает партию целиком,
+    # включая спрашивающего: это картина группы, а не дыры вокруг одного.
+    character = deps.storage.get_character(user_id)
+    if character is None:
+        await update.message.reply_html(
+            "Сначала задайте персонажа: <code>/me друид 6</code>"
+        )
+        return
+
+    allies = deps.storage.party_members(user_id)
+    if not allies:
+        await update.message.reply_html(format_party(allies))
+        return
+
+    sheet = build_party_sheet(
+        [PartyMember(character.class_key, character.level), *allies],
+        classes=deps.classes,
+        spells=deps.catalogs["spells"],
+    )
+    text = format_sheet(sheet)
+    if character.party_code:
+        text += f"\n\nКод партии: <code>{character.party_code}</code>"
+    await update.message.reply_html(text)
 
 
 async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, *, preferred: str | None) -> None:
