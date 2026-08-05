@@ -111,14 +111,21 @@ _SPELL_ACTIONS = {"add": True, "добавить": True, "remove": False, "уб�
 
 def parse_spell_command(
     text: str, catalog_names: list[str]
-) -> tuple[str | None, bool, str] | None:
+) -> tuple[str | None, bool, list[str], list[str]] | None:
     """
-    Разобрать строку вида "Кузьма add cure wounds" в имя, действие и заклинание.
+    Разобрать строку вида "Кузьма add fireball, web, cure wounds".
 
-    Действие служит разделителем: имя до него, название заклинания после.
-    Название ищется по началу — за столом никто не печатает Wall of Fire
-    целиком, — но неоднозначный кусок не угадывается: под "fire" подходят и
-    Fireball, и Fire Bolt, и Wall of Fire.
+    Возвращает имя персонажа, добавляем или убираем, найденные заклинания и
+    отдельно непонятые. Заклинания перечисляются через запятую: вводить список
+    по одному сообщению на штуку — верный способ бросить это занятие.
+
+    Действие служит разделителем: имя до него, заклинания после. Название
+    ищется по началу — за столом никто не печатает Wall of Fire целиком, — но
+    неоднозначный кусок не угадывается: под "fire" подходят и Fireball, и
+    Fire Bolt, и Wall of Fire.
+
+    Непонятое возвращается отдельно, а не проглатывается: иначе список
+    запишется не полностью, и никто об этом не узнает.
     """
     parts = (text or "").split()
     action_at = next(
@@ -128,16 +135,27 @@ def parse_spell_command(
     if action_at is None:
         return None
 
-    wanted = " ".join(parts[action_at + 1 :]).strip().lower()
-    if not wanted:
+    tail = " ".join(parts[action_at + 1 :]).strip()
+    if not tail:
         return None
 
-    matches = [name for name in catalog_names if name.lower().startswith(wanted)]
-    if len(matches) != 1:
+    found: list[str] = []
+    unknown: list[str] = []
+    for chunk in tail.split(","):
+        wanted = chunk.strip().lower()
+        if not wanted:
+            continue
+        matches = [name for name in catalog_names if name.lower().startswith(wanted)]
+        if len(matches) == 1:
+            found.append(matches[0])
+        else:
+            unknown.append(chunk.strip())
+
+    if not found and not unknown:
         return None
 
     name = " ".join(parts[:action_at]).strip() or None
-    return name, _SPELL_ACTIONS[parts[action_at].lower()], matches[0]
+    return name, _SPELL_ACTIONS[parts[action_at].lower()], found, unknown
 
 
 #: Как называют характеристики и боевые числа. Русские сокращения — те, что

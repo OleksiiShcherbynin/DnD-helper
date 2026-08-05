@@ -414,9 +414,9 @@ async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     if parsed is None:
         await update.message.reply_html(
-            "Не нашёл такого заклинания. Примеры:\n"
-            "<code>/spell add fireball</code>\n"
-            "<code>/spell Кузьма add cure wounds</code>\n"
+            "Не разобрал. Примеры:\n"
+            "<code>/spell add fireball, web, cure wounds</code> — сразу списком\n"
+            "<code>/spell Кузьма add fire bolt</code>\n"
             "<code>/spell remove web</code>\n\n"
             "Названия английские, хватает начала: <code>/spell add cure</code>. "
             "Если начало подходит нескольким — уточните.\n\n"
@@ -425,22 +425,34 @@ async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    name, adding, spell_name = parsed
+    name, adding, found, unknown = parsed
     by_name = {item.name: item.key for item in deps.catalogs["spells"]}
-    changed = deps.storage.update_spells(
-        user_id, name,
-        add={by_name[spell_name]} if adding else set(),
-        remove=set() if adding else {by_name[spell_name]},
-    )
-    if not changed:
-        await update.message.reply_html(
-            f"Не нашёл {html.escape(name or 'персонажа')} среди тех, кого вы заводили."
+    keys = {by_name[title] for title in found}
+
+    if keys:
+        changed = deps.storage.update_spells(
+            user_id, name,
+            add=keys if adding else set(),
+            remove=set() if adding else keys,
         )
-        return
+        if not changed:
+            await update.message.reply_html(
+                f"Не нашёл {html.escape(name or 'персонажа')} в вашей партии."
+            )
+            return
 
     whose = f" у {html.escape(name)}" if name else ""
-    verb = "Добавил" if adding else "Убрал"
-    await update.message.reply_html(f"{verb}{whose}: {html.escape(spell_name)}.")
+    lines = []
+    if found:
+        verb = "Добавил" if adding else "Убрал"
+        lines.append(f"{verb}{whose} ({len(found)}): {html.escape(', '.join(found))}.")
+    if unknown:
+        lines.append(
+            "⚠️ <b>Не понял и не записал:</b> " + html.escape(", ".join(unknown))
+            + "\nЛибо опечатка, либо начало подходит нескольким, либо этого "
+            "заклинания нет в SRD."
+        )
+    await update.message.reply_html("\n\n".join(lines))
 
 
 async def export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

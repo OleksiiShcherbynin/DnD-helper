@@ -208,28 +208,50 @@ SPELL_NAMES = ["Fireball", "Cure Wounds", "Web", "Fire Bolt", "Wall of Fire"]
 
 
 @pytest.mark.parametrize("text, expected", [
-    ("add fireball", (None, True, "Fireball")),
-    ("remove web", (None, False, "Web")),
-    ("Кузьма add cure wounds", ("Кузьма", True, "Cure Wounds")),
-    ("Сир Гарет remove fireball", ("Сир Гарет", False, "Fireball")),
+    ("add fireball", (None, True, ["Fireball"], [])),
+    ("remove web", (None, False, ["Web"], [])),
+    ("Кузьма add cure wounds", ("Кузьма", True, ["Cure Wounds"], [])),
+    ("Сир Гарет remove fireball", ("Сир Гарет", False, ["Fireball"], [])),
 ])
 def test_spell_command_is_parsed(text, expected):
     assert parse_spell_command(text, SPELL_NAMES) == expected
 
 
+def test_several_spells_go_in_one_command():
+    """
+    Список заклинаний вводят целиком, а не по одному сообщению на штуку:
+    двадцать сообщений подряд — верный способ бросить это занятие.
+    """
+    assert parse_spell_command("add fireball, web, cure wounds", SPELL_NAMES) == (
+        None, True, ["Fireball", "Web", "Cure Wounds"], []
+    )
+
+
+def test_unrecognised_spells_are_reported_separately():
+    """
+    Молча проглотить непонятое значит записать не весь список и не сказать
+    об этом — игрок решит, что всё на месте.
+    """
+    name, adding, found, unknown = parse_spell_command(
+        "add fireball, такого-нет, web", SPELL_NAMES
+    )
+    assert found == ["Fireball", "Web"]
+    assert unknown == ["такого-нет"]
+
+
 def test_a_prefix_is_enough():
     """За столом никто не печатает Wall of Fire целиком."""
-    assert parse_spell_command("add wall of", SPELL_NAMES) == (None, True, "Wall of Fire")
+    assert parse_spell_command("add wall of", SPELL_NAMES) == (
+        None, True, ["Wall of Fire"], []
+    )
 
 
 def test_an_ambiguous_prefix_is_not_guessed():
     """"fire" подходит и Fireball, и Fire Bolt, и Wall of Fire."""
-    assert parse_spell_command("add fire", SPELL_NAMES) is None
+    assert parse_spell_command("add fire", SPELL_NAMES) == (None, True, [], ["fire"])
 
 
-@pytest.mark.parametrize("text", [
-    "", "add", "fireball", "add такого-нет", "Кузьма fireball",
-])
+@pytest.mark.parametrize("text", ["", "add", "fireball", "Кузьма fireball"])
 def test_broken_spell_command_is_refused(text):
     assert parse_spell_command(text, SPELL_NAMES) is None
 

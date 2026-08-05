@@ -415,10 +415,12 @@ with st.expander("⚔️ Опасность боя — драться или б�
 
     enemies = []
     if chosen_enemies:
+        st.caption("Сколько их — по каждому виду:")
         columns = st.columns(min(4, len(chosen_enemies)))
         for index, name in enumerate(chosen_enemies):
             count = columns[index % len(columns)].number_input(
-                name, min_value=1, max_value=99, value=1, key=f"count_{name}"
+                f"{name} — сколько",
+                min_value=1, max_value=99, value=1, key=f"count_{index}",
             )
             enemies.append((by_name[name], int(count)))
 
