@@ -43,6 +43,72 @@ class ClassProfile:
     known_table: tuple[int, ...] | None = None
     rituals: bool = False
     notes: str = ""
+    #: С какого уровня класс вообще колдует. У следопыта со второго,
+    #: у Изобретателя с первого, хотя оба полукастеры.
+    spellcasting_from_level: int = 1
+    #: На что делить уровень в формуле подготовки. У Изобретателя это половина
+    #: уровня, у жреца и друида — полный.
+    prepared_level_divisor: int = 1
+    #: Явный список заклинаний ключами — для классов, которых каталог не
+    #: размечает. Пусто — берём всё, что помечено списком этого класса.
+    spell_keys: frozenset[str] | None = None
+    #: Класс вне SRD: механика описана нами, а не взята из открытого документа.
+    homebrew: bool = False
+
+
+# ── Изобретатель: класс вне SRD ───────────────────────────────────────────────
+#
+# Он из Tasha's Cauldron of Everything, поэтому каталог о нём не знает ничего —
+# ни кости хитов, ни спасбросков, и ни одно заклинание не помечено как его.
+# Список задаётся ключами, а отбор по классу для него не работает.
+#
+# Из 66 заклинаний Изобретателя в SRD есть 57. Отсутствуют пришедшие вместе с
+# классом из Tasha's: Snare, Tasha's Caustic Brew, Catnap, Elemental Weapon,
+# Flame Arrows, Intellect Fortress, Summon Construct, Skill Empowerment,
+# Transmute Rock. Их в открытом документе нет, и придумывать их нельзя.
+#
+# Именные заклинания в SRD переименованы, и в списке они под новыми именами:
+# Bigby's Hand -> Arcane Hand, Mordenkainen's Faithful Hound -> Faithful Hound,
+# Leomund's Secret Chest -> Secret Chest, и так далее.
+
+ARTIFICER = "hb_artificer"
+ARTILLERIST = "hb_artificer_artillerist"
+
+_ARTIFICER_SPELLS = frozenset({
+    # 1 круг
+    "srd_alarm", "srd_cure-wounds", "srd_detect-magic", "srd_disguise-self",
+    "srd_expeditious-retreat", "srd_faerie-fire", "srd_false-life",
+    "srd_feather-fall", "srd_grease", "srd_identify", "srd_jump",
+    "srd_longstrider", "srd_purify-food-and-drink", "srd_sanctuary",
+    # 2 круг
+    "srd_aid", "srd_alter-self", "srd_arcane-lock", "srd_blur",
+    "srd_continual-flame", "srd_darkvision", "srd_enhance-ability",
+    # Ключ без дефиса: слэш в "Enlarge/Reduce" в слаге просто выброшен.
+    "srd_enlargereduce", "srd_heat-metal", "srd_invisibility",
+    "srd_lesser-restoration", "srd_levitate", "srd_magic-mouth",
+    "srd_magic-weapon", "srd_protection-from-poison", "srd_rope-trick",
+    "srd_see-invisibility", "srd_spider-climb", "srd_web",
+    # 3 круг
+    "srd_blink", "srd_create-food-and-water", "srd_dispel-magic", "srd_fly",
+    "srd_glyph-of-warding", "srd_haste", "srd_protection-from-energy",
+    "srd_revivify", "srd_water-breathing", "srd_water-walk",
+    # 4 круг
+    "srd_arcane-eye", "srd_fabricate", "srd_freedom-of-movement",
+    "srd_stone-shape", "srd_stoneskin", "srd_secret-chest",
+    "srd_faithful-hound", "srd_private-sanctum", "srd_resilient-sphere",
+    # 5 круг
+    "srd_animate-objects", "srd_creation", "srd_greater-restoration",
+    "srd_wall-of-stone", "srd_arcane-hand",
+})
+
+#: Артиллерист получает эти заклинания сверх общего списка, и они всегда
+#: подготовлены. Подклассы отдельной сущностью не заводились: строка в таблице
+#: со своим списком делает то же самое и ничего не усложняет.
+_ARTILLERIST_SPELLS = _ARTIFICER_SPELLS | {
+    "srd_shield", "srd_thunderwave", "srd_scorching-ray", "srd_shatter",
+    "srd_fireball", "srd_wind-wall", "srd_ice-storm", "srd_wall-of-fire",
+    "srd_cone-of-cold", "srd_wall-of-force",
+}
 
 
 CASTERS: dict[str, ClassProfile] = {
@@ -84,8 +150,32 @@ CASTERS: dict[str, ClassProfile] = {
             key="srd_ranger", name="Следопыт", caster="half", preparation="known",
             ability="wis", known_table=_RANGER_KNOWN,
             party_roles=frozenset({"utility", "damage"}),
+            spellcasting_from_level=2,
+        ),
+        ClassProfile(
+            key=ARTIFICER, name="Изобретатель", caster="half", preparation="prepared",
+            ability="int", rituals=True, homebrew=True,
+            party_roles=frozenset({"utility", "defense", "damage"}),
+            spell_keys=_ARTIFICER_SPELLS,
+            prepared_level_divisor=2,
+            notes="Вне SRD (Tasha's). Готовит Интеллект + половину уровня.",
+        ),
+        ClassProfile(
+            key=ARTILLERIST, name="Изобретатель (артиллерист)", caster="half",
+            preparation="prepared", ability="int", rituals=True, homebrew=True,
+            party_roles=frozenset({"damage", "utility", "defense"}),
+            spell_keys=_ARTILLERIST_SPELLS,
+            prepared_level_divisor=2,
+            notes="Вне SRD (Tasha's). Заклинания подкласса всегда подготовлены.",
         ),
     )
+}
+
+#: Кость хитов и владения спасбросками для классов вне SRD: каталог их не знает,
+#: а листу партии они нужны. У Изобретателя d8, Телосложение и Интеллект.
+EXTRA_CLASS_DATA: dict[str, tuple[int, frozenset[str]]] = {
+    ARTIFICER: (8, frozenset({"con", "int"})),
+    ARTILLERIST: (8, frozenset({"con", "int"})),
 }
 
 #: Что приносят партии классы без заклинаний. Нужно, чтобы понимать состав,
@@ -131,6 +221,9 @@ _CLASS_ALIASES: dict[str, str] = {
     "плут": "srd_rogue", "вор": "srd_rogue", "разбойник": "srd_rogue", "rogue": "srd_rogue",
     "монах": "srd_monk", "monk": "srd_monk",
     "паладин": "srd_paladin", "paladin": "srd_paladin",
+    # Вне SRD, но за столом встречается.
+    "изобретатель": ARTIFICER, "артифайсер": ARTIFICER, "artificer": ARTIFICER,
+    "артиллерист": ARTILLERIST, "artillerist": ARTILLERIST,
 }
 
 
@@ -172,10 +265,13 @@ def profile(class_key: str) -> ClassProfile:
 
 def max_spell_level(class_key: str, character_level: int) -> int:
     """Максимальный круг заклинаний, доступный персонажу. 0 — заклинаний ещё нет."""
-    kind = profile(class_key).caster
+    current = profile(class_key)
+    kind = current.caster
 
     if kind == "half":
-        if character_level < _HALF_CASTER_MIN_LEVEL:
+        # Следопыт начинает со второго уровня, Изобретатель с первого, хотя
+        # прогрессия кругов у них одна и та же.
+        if character_level < current.spellcasting_from_level:
             return 0
         return min(5, (character_level + 3) // 4)
 
@@ -204,4 +300,4 @@ def prepared_or_known_count(
         index = max(0, min(level, len(current.known_table)) - 1)
         return current.known_table[index]
 
-    return max(1, ability_modifier + level)
+    return max(1, ability_modifier + level // current.prepared_level_divisor)

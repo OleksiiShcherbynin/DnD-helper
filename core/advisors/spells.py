@@ -112,15 +112,22 @@ def rank_spells(
     Пустой список означает, что заклинаний ещё нет: у полукастера до 2 уровня
     их действительно нет, и это не ошибка.
     """
-    profile(class_key)  # неизвестный класс — ошибка, а не пустая выдача
+    current = profile(class_key)  # неизвестный класс — ошибка, а не пустая выдача
     circle_cap = max_spell_level(class_key, character_level)
     if circle_cap == 0:
         return []
 
+    # У классов вне SRD каталог не проставляет принадлежность списку, поэтому
+    # для них список задан явно ключами. Иначе отбор дал бы пустоту.
+    if current.spell_keys is not None:
+        belongs = lambda spell: spell.key in current.spell_keys  # noqa: E731
+    else:
+        belongs = lambda spell: class_key in spell.classes  # noqa: E731
+
     available = [
         spell
         for spell in catalog
-        if class_key in spell.classes
+        if belongs(spell)
         and spell.level <= circle_cap
         and (include_cantrips or not spell.is_cantrip)
     ]

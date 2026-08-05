@@ -16,9 +16,21 @@ from core.class_profiles import (
 )
 
 
-def test_every_caster_in_the_table_matches_the_catalog_key_convention():
+def test_catalog_classes_match_the_catalog_key_convention():
     """Ключ srd_wizard работает, а wizard молча возвращает пустоту."""
-    assert all(key.startswith("srd_") for key in CASTERS)
+    from_catalog = [p for p in CASTERS.values() if not p.homebrew]
+    assert from_catalog
+    assert all(p.key.startswith("srd_") for p in from_catalog)
+
+
+def test_classes_outside_the_srd_carry_their_own_spell_list():
+    """
+    Каталог их не размечает, поэтому отбор по списку класса дал бы пустоту.
+    Класс вне SRD без явного списка — это молча неработающий советник.
+    """
+    for current in CASTERS.values():
+        if current.homebrew:
+            assert current.spell_keys, f"{current.key} без списка заклинаний"
 
 
 def test_paladin_is_absent_because_the_source_does_not_tag_it():

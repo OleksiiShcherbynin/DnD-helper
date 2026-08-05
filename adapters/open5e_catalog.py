@@ -14,7 +14,8 @@ import json
 from pathlib import Path
 import re
 
-from core.models import Attack, Creature, ClassData, Spell, SpellRole
+from core.class_profiles import EXTRA_CLASS_DATA, display_name
+from core.models import Attack, ClassData, Creature, Spell, SpellRole
 
 #: Куда tools/sync_catalog.py кладёт загруженный каталог.
 _CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
@@ -394,6 +395,17 @@ def load_spells(path: Path | str | None = None) -> list[Spell]:
 
 
 def load_classes(path: Path | str | None = None) -> dict[str, ClassData]:
-    """Данные о классах, по ключу класса."""
+    """
+    Данные о классах, по ключу класса.
+
+    К данным из каталога подмешиваются классы вне SRD: их открытый документ не
+    описывает вовсе, а листу партии нужны кость хитов и спасброски.
+    """
     raw = _load_raw(Path(path) if path is not None else DEFAULT_CLASSES_PATH)
-    return {item["key"]: parse_class_data(item) for item in raw}
+    classes = {item["key"]: parse_class_data(item) for item in raw}
+
+    for key, (hit_die, saves) in EXTRA_CLASS_DATA.items():
+        classes[key] = ClassData(
+            key=key, name=display_name(key), hit_die=hit_die, saving_throws=saves
+        )
+    return classes
