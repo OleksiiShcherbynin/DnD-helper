@@ -1,4 +1,4 @@
-"""
+﻿"""
 Отбор легальных кандидатов — первый из трёх слоёв советника.
 
 Всё, что этот слой отсеял, дальше не существует: ни эвристика, ни LLM его уже
@@ -8,7 +8,7 @@
 
 from collections.abc import Iterable
 
-from core.models import Beast
+from core.models import Creature
 from core.rules import (
     wild_shape_allows_flight,
     wild_shape_allows_swimming,
@@ -17,8 +17,8 @@ from core.rules import (
 
 
 def legal_wild_shape_beasts(
-    beasts: Iterable[Beast], druid_level: int, *, allow_swarms: bool = False
-) -> list[Beast]:
+    beasts: Iterable[Creature], druid_level: int, *, allow_swarms: bool = False
+) -> list[Creature]:
     """
     Звери, в которых друид указанного уровня имеет право превратиться.
 

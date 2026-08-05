@@ -13,10 +13,10 @@ tools.sync_catalog ещё не запускали.
 import pytest
 from streamlit.testing.v1 import AppTest
 
-from adapters.open5e_catalog import DEFAULT_BEASTS_PATH, DEFAULT_SPELLS_PATH
+from adapters.open5e_catalog import DEFAULT_CREATURES_PATH, DEFAULT_SPELLS_PATH
 
 pytestmark = pytest.mark.skipif(
-    not (DEFAULT_BEASTS_PATH.exists() and DEFAULT_SPELLS_PATH.exists()),
+    not (DEFAULT_CREATURES_PATH.exists() and DEFAULT_SPELLS_PATH.exists()),
     reason="каталог не загружен: uv run python -m tools.sync_catalog",
 )
 

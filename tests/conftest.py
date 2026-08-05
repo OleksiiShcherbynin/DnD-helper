@@ -1,11 +1,11 @@
-"""Общие фикстуры: настоящий срез каталога SRD, разобранный в доменные модели."""
+﻿"""Общие фикстуры: настоящий срез каталога SRD, разобранный в доменные модели."""
 
 import json
 from pathlib import Path
 
 import pytest
 
-from adapters.open5e_catalog import parse_beast, parse_class_data, parse_spell
+from adapters.open5e_catalog import parse_creature, parse_class_data, parse_spell
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 FIXTURE = FIXTURES / "beasts_sample.json"
@@ -24,7 +24,7 @@ def beasts():
       Giant Octopus         CR 1,   плавание
     """
     raw = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    return [parse_beast(item) for item in raw]
+    return [parse_creature(item) for item in raw]
 
 
 @pytest.fixture(scope="session")

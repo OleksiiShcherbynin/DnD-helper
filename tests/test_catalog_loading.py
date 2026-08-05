@@ -4,28 +4,52 @@ import json
 
 import pytest
 
-from adapters.open5e_catalog import CatalogMissing, load_beasts, load_spells
+from adapters.open5e_catalog import (
+    CatalogMissing,
+    load_beasts,
+    load_creatures,
+    load_spells,
+)
+
+
+def _creature(key, name, type_key):
+    return {
+        "key": key,
+        "name": name,
+        "type": {"key": type_key},
+        "challenge_rating": 0.25,
+        "armor_class": 13,
+        "hit_points": 11,
+        "speed": {"walk": 40},
+        "environments": [{"key": "forest"}],
+        "actions": [{"name": "Bite", "desc": "Hit: 7 (2d4 + 2) piercing damage."}],
+    }
+
+
+def _catalog(tmp_path, *creatures):
+    path = tmp_path / "creatures.json"
+    path.write_text(json.dumps(list(creatures)), encoding="utf-8")
+    return path
 
 
 def test_loads_saved_catalog(tmp_path):
-    raw = [
-        {
-            "key": "wolf",
-            "name": "Wolf",
-            "challenge_rating": 0.25,
-            "armor_class": 13,
-            "hit_points": 11,
-            "speed": {"walk": 40},
-            "environments": [{"key": "forest"}],
-            "actions": [{"name": "Bite", "desc": "Hit: 7 (2d4 + 2) piercing damage."}],
-        }
-    ]
-    path = tmp_path / "beasts.json"
-    path.write_text(json.dumps(raw), encoding="utf-8")
+    path = _catalog(tmp_path, _creature("wolf", "Wolf", "beast"))
+    assert [creature.name for creature in load_creatures(path)] == ["Wolf"]
 
-    beasts = load_beasts(path)
 
-    assert [beast.name for beast in beasts] == ["Wolf"]
+def test_wild_shape_candidates_are_beasts_only(tmp_path):
+    """
+    Каталог общий для форм и для противников, поэтому отбор по типу — не
+    оптимизация, а правило: превратиться можно только в зверя, но не в дракона.
+    """
+    path = _catalog(
+        tmp_path,
+        _creature("wolf", "Wolf", "beast"),
+        _creature("red-dragon", "Adult Red Dragon", "dragon"),
+    )
+
+    assert [creature.name for creature in load_beasts(path)] == ["Wolf"]
+    assert len(load_creatures(path)) == 2
 
 
 def test_loads_saved_spells(tmp_path):

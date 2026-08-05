@@ -18,6 +18,7 @@ CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
 
 #: Ожидаемые количества, снятые с живого API. Служат стражем: расхождение
 #: означает либо сломанный фильтр, либо изменение данных на стороне источника.
+EXPECTED_CREATURES = 325
 EXPECTED_BEASTS = 98
 EXPECTED_SPELLS = 319
 
@@ -97,10 +98,15 @@ def _write(name: str, records: list[dict]) -> Path:
 
 
 def sync() -> None:
-    beasts = _fetch_all("creatures", {"type": "beast", "document__key": DOCUMENT})
+    # Один файл на всех: звери нужны как формы, остальные — как противники.
+    creatures = _fetch_all("creatures", {"document__key": DOCUMENT})
+    verify_count("Существа", len(creatures), EXPECTED_CREATURES)
+
+    beasts = [c for c in creatures if (c.get("type") or {}).get("key") == "beast"]
     verify_count("Звери", len(beasts), EXPECTED_BEASTS)
-    path = _write("beasts", beasts)
-    print(f"Звери: {len(beasts)} -> {path}")
+
+    path = _write("creatures", creatures)
+    print(f"Существа: {len(creatures)} -> {path} (из них зверей: {len(beasts)})")
 
     spells = _fetch_all("spells", {"document__key": DOCUMENT})
     verify_count("Заклинания", len(spells), EXPECTED_SPELLS)

@@ -1,4 +1,4 @@
-"""
+﻿"""
 Советник по Wild Shape: эвристическое ранжирование легальных форм.
 
 Второй слой конвейера. Работает на уже отфильтрованном списке, поэтому здесь
@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from core.combat import expected_round_damage
-from core.models import Beast
+from core.models import Creature
 from core.situation import Situation, parse_situation
 
 #: Вклад каждой характеристики в зависимости от цели.
@@ -39,7 +39,7 @@ _TERRAIN_BONUS = 0.15
 class ScoredBeast:
     """Форма с оценкой и расшифровкой, посчитанными без обращения к модели."""
 
-    beast: Beast
+    beast: Creature
     score: float
     why: str
     #: Ожидаемый урон против конкретного AC. None — цель не указана, и врать
@@ -47,7 +47,7 @@ class ScoredBeast:
     expected_damage: float | None = None
 
 
-def _durability(beast: Beast) -> float:
+def _durability(beast: Creature) -> float:
     """
     Живучесть как условные "эффективные хиты".
 
@@ -66,7 +66,7 @@ def _is_water(situation: Situation) -> bool:
     return "swim" in situation.goals or bool(situation.terrains & _WATER_TERRAINS)
 
 
-def _mobility(beast: Beast, situation: Situation) -> float:
+def _mobility(beast: Creature, situation: Situation) -> float:
     """
     Скорость, которая реально пригодится в описанной обстановке.
 
@@ -82,7 +82,7 @@ def _mobility(beast: Beast, situation: Situation) -> float:
     return float(max(beast.walk, beast.speeds.get("fly", 0)))
 
 
-def _senses(beast: Beast) -> float:
+def _senses(beast: Creature) -> float:
     """
     Ценность чувств для разведки.
 
@@ -132,7 +132,7 @@ def _weights_for(situation: Situation) -> dict[str, float]:
 
 
 def _describe(
-    beast: Beast,
+    beast: Creature,
     situation: Situation,
     terrain_matched: bool,
     expected: float | None,
@@ -156,7 +156,7 @@ def _describe(
 
 
 def rank_beasts(
-    beasts: Iterable[Beast], situation: Situation, *, target_ac: int | None = None
+    beasts: Iterable[Creature], situation: Situation, *, target_ac: int | None = None
 ) -> list[ScoredBeast]:
     """
     Отсортировать легальные формы по пригодности к описанной ситуации.

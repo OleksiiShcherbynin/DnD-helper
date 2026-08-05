@@ -1,4 +1,4 @@
-"""
+﻿"""
 Доменные модели.
 
 Это единственное представление зверей и заклинаний, с которым работает ядро.
@@ -31,14 +31,20 @@ class Attack(BaseModel):
     average: float = 0.0
 
 
-class Beast(BaseModel):
-    """Зверь как кандидат на Wild Shape."""
+class Creature(BaseModel):
+    """
+    Существо со статблоком: и зверь как форма для Wild Shape, и монстр как
+    противник в столкновении. Поля у них одни и те же, поэтому модель общая.
+    """
 
     key: str
     name: str
     cr: float
     ac: int
     hp: int
+    #: Ключ типа: beast, dragon, humanoid... По нему отбираются формы для
+    #: Wild Shape — превращаться можно только в зверя.
+    creature_type: str = ""
 
     #: Только настоящие скорости из статблока, нулевые не хранятся.
     #: Производные значения Open5e (climb/swim в половину ходьбы) сюда не попадают.
@@ -60,9 +66,9 @@ class Beast(BaseModel):
     tremorsense: int = 0
     passive_perception: int = 0
 
-    #: Рой. В данных Open5e рой ничем не отличается от обычного зверя —
-    #: type=Beast, size=Medium, category=Monsters, — поэтому признак снимается
-    #: с имени. Других зацепок источник не даёт.
+    #: Рой. В данных Open5e рой ничем не отличается от обычного зверя:
+    #: у него та же type=Beast, size=Medium и category=Monsters, — поэтому
+    #: признак снимается с имени. Других зацепок источник не даёт.
     is_swarm: bool = False
 
     @property

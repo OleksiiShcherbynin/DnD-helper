@@ -1,4 +1,4 @@
-"""
+﻿"""
 Адаптер каталога Open5e: сырой JSON -> доменные модели.
 
 Здесь же лечатся известные дефекты источника, каждый из них закрыт тестом
@@ -14,13 +14,17 @@ import json
 from pathlib import Path
 import re
 
-from core.models import Attack, Beast, ClassData, Spell, SpellRole
+from core.models import Attack, Creature, ClassData, Spell, SpellRole
 
 #: Куда tools/sync_catalog.py кладёт загруженный каталог.
 _CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
-DEFAULT_BEASTS_PATH = _CATALOG_DIR / "beasts.json"
+#: Один файл на всех существ: и зверей для Wild Shape, и монстров как
+#: противников. Отбор по типу дешевле, чем второй файл и вторая загрузка.
+DEFAULT_CREATURES_PATH = _CATALOG_DIR / "creatures.json"
 DEFAULT_SPELLS_PATH = _CATALOG_DIR / "spells.json"
 DEFAULT_CLASSES_PATH = _CATALOG_DIR / "classes.json"
+
+BEAST_TYPE = "beast"
 
 
 class CatalogMissing(FileNotFoundError):
@@ -106,7 +110,7 @@ def _damage_per_round(actions: list[dict]) -> float:
     return averages[0]
 
 
-def parse_beast(raw: dict) -> Beast:
+def parse_creature(raw: dict) -> Creature:
     """Собрать доменного зверя из сырого ответа Open5e."""
     actions = raw.get("actions") or []
     speed = raw.get("speed") or {}
@@ -116,9 +120,10 @@ def parse_beast(raw: dict) -> Beast:
         if isinstance(speed.get(key), int) and speed[key] > 0
     }
 
-    return Beast(
+    return Creature(
         key=raw["key"],
         name=raw["name"],
+        creature_type=(raw.get("type") or {}).get("key", ""),
         cr=float(raw["challenge_rating"]),
         ac=int(raw["armor_class"]),
         hp=int(raw["hit_points"]),
@@ -336,11 +341,20 @@ def _load_raw(path: Path) -> list[dict]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_beasts(path: Path | str | None = None) -> list[Beast]:
-    """Прочитать сохранённый каталог зверей с диска."""
+def load_creatures(path: Path | str | None = None) -> list[Creature]:
+    """Прочитать сохранённый каталог существ с диска."""
     return [
-        parse_beast(item)
-        for item in _load_raw(Path(path) if path is not None else DEFAULT_BEASTS_PATH)
+        parse_creature(item)
+        for item in _load_raw(Path(path) if path is not None else DEFAULT_CREATURES_PATH)
+    ]
+
+
+def load_beasts(path: Path | str | None = None) -> list[Creature]:
+    """Только звери — кандидаты на Wild Shape. Превратиться можно лишь в зверя."""
+    return [
+        creature
+        for creature in load_creatures(path)
+        if creature.creature_type == BEAST_TYPE
     ]
 
 

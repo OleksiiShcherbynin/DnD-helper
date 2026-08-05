@@ -1,4 +1,4 @@
-"""
+﻿"""
 Разбор сырых данных Open5e в доменную модель.
 
 Тесты гоняются на настоящем срезе API (fixtures/beasts_sample.json), а не на
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from adapters.open5e_catalog import parse_beast
+from adapters.open5e_catalog import parse_creature
 
 FIXTURE = Path(__file__).resolve().parent.parent / "fixtures" / "beasts_sample.json"
 
@@ -22,7 +22,7 @@ def raw():
 
 
 def test_parses_core_stats(raw):
-    wolf = parse_beast(raw["Wolf"])
+    wolf = parse_creature(raw["Wolf"])
     assert wolf.name == "Wolf"
     assert wolf.cr == 0.25
     assert wolf.ac == 13
@@ -39,13 +39,13 @@ def test_uses_real_speeds_not_derived_ones(raw):
     потеряет почти всех легальных зверей, и выглядеть это будет не как баг,
     а как "просто нет подходящих вариантов".
     """
-    assert parse_beast(raw["Wolf"]).has_swimming is False
-    assert parse_beast(raw["Giant Octopus"]).has_swimming is True
+    assert parse_creature(raw["Wolf"]).has_swimming is False
+    assert parse_creature(raw["Giant Octopus"]).has_swimming is True
 
 
 def test_detects_real_flight(raw):
-    assert parse_beast(raw["Giant Eagle"]).has_flight is True
-    assert parse_beast(raw["Wolf"]).has_flight is False
+    assert parse_creature(raw["Giant Eagle"]).has_flight is True
+    assert parse_creature(raw["Wolf"]).has_flight is False
 
 
 def test_damage_read_from_description_not_from_broken_fields(raw):
@@ -54,16 +54,16 @@ def test_damage_read_from_description_not_from_broken_fields(raw):
     Средний урон берётся из текста статблока: "Hit: 7 (2d4 + 2) piercing damage".
     Посчитанный по структурированным полям укус волка дал бы 5 вместо 7.
     """
-    assert parse_beast(raw["Wolf"]).damage_per_round == 7.0
+    assert parse_creature(raw["Wolf"]).damage_per_round == 7.0
 
 
 def test_multiattack_sums_two_best_attacks(raw):
     """Бурый медведь: Multiattack из укуса (8) и когтей (11)."""
-    assert parse_beast(raw["Brown Bear"]).damage_per_round == 19.0
+    assert parse_creature(raw["Brown Bear"]).damage_per_round == 19.0
 
 
 def test_environments_are_stored_as_keys(raw):
-    assert "forest" in parse_beast(raw["Wolf"]).environments
+    assert "forest" in parse_creature(raw["Wolf"]).environments
 
 
 def test_attacks_carry_the_to_hit_bonus_from_the_structured_field(raw):
@@ -71,19 +71,19 @@ def test_attacks_carry_the_to_hit_bonus_from_the_structured_field(raw):
     В отличие от damage_bonus и damage_type, поле to_hit_mod источнику можно
     верить: по всем 118 атакам каталога оно ни разу не разошлось с текстом.
     """
-    bite = parse_beast(raw["Wolf"]).attacks[0]
+    bite = parse_creature(raw["Wolf"]).attacks[0]
     assert bite.to_hit == 4
 
 
 def test_attacks_split_dice_and_bonus_out_of_the_text(raw):
     """У волка "Hit: 7 (2d4 + 2)": две четвёрки и двойка сверху."""
-    bite = parse_beast(raw["Wolf"]).attacks[0]
+    bite = parse_creature(raw["Wolf"]).attacks[0]
     assert (bite.dice_count, bite.die_size, bite.damage_bonus) == (2, 4, 2)
     assert bite.average == 7.0
 
 
 def test_multiattack_is_not_counted_as_an_attack(raw):
     """У Multiattack нет своего урона — это указание бить дважды."""
-    bear = parse_beast(raw["Brown Bear"])
+    bear = parse_creature(raw["Brown Bear"])
     assert "Multiattack" not in [attack.name for attack in bear.attacks]
     assert bear.has_multiattack is True
