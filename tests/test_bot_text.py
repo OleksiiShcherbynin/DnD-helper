@@ -251,6 +251,19 @@ def test_an_ambiguous_prefix_is_not_guessed():
     assert parse_spell_command("add fire", SPELL_NAMES) == (None, True, [], ["fire"])
 
 
+def test_an_exact_name_wins_over_a_longer_one():
+    """
+    "shield" — это целиком название заклинания, хотя оно же начинает
+    "Shield of Faith". Отказываться от точного имени из-за того, что оно
+    чему-то предшествует, значит не дать ввести половину каталога.
+    """
+    names = ["Shield", "Shield of Faith", "Fireball"]
+    assert parse_spell_command("add shield", names) == (None, True, ["Shield"], [])
+    assert parse_spell_command("add shield of faith", names) == (
+        None, True, ["Shield of Faith"], []
+    )
+
+
 @pytest.mark.parametrize("text", ["", "add", "fireball", "Кузьма fireball"])
 def test_broken_spell_command_is_refused(text):
     assert parse_spell_command(text, SPELL_NAMES) is None
@@ -293,6 +306,13 @@ def test_ambiguous_prefix_is_not_guessed():
     resolved, unknown = parse_enemies("giant", CATALOG_NAMES + ["Giant Eagle"])
     assert resolved == []
     assert unknown == ["giant"]
+
+
+def test_an_exact_enemy_name_wins_over_a_longer_one():
+    """У врагов та же ловушка, что у заклинаний: короткое имя внутри длинного."""
+    resolved, unknown = parse_enemies("bat 3", ["Bat", "Bat Swarm"])
+    assert resolved == [("Bat", 3)]
+    assert unknown == []
 
 
 def _sheet(class_data, spells, *pairs):

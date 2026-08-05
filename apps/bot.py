@@ -40,6 +40,7 @@ from adapters.open5e_catalog import (
 )
 from adapters.sqlite_storage import Storage, StorageTooNew
 from apps.formatting import (
+    candidates_for,
     format_advice,
     format_character,
     format_party,
@@ -446,12 +447,19 @@ async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if found:
         verb = "Добавил" if adding else "Убрал"
         lines.append(f"{verb}{whose} ({len(found)}): {html.escape(', '.join(found))}.")
-    if unknown:
-        lines.append(
-            "⚠️ <b>Не понял и не записал:</b> " + html.escape(", ".join(unknown))
-            + "\nЛибо опечатка, либо начало подходит нескольким, либо этого "
-            "заклинания нет в SRD."
-        )
+    for chunk in unknown:
+        options = candidates_for(chunk, [item.name for item in deps.catalogs["spells"]])
+        if options:
+            lines.append(
+                f"⚠️ <b>«{html.escape(chunk)}» подходит нескольким</b>, "
+                f"поэтому не записал. Уточните:\n"
+                + "\n".join(f"• {html.escape(name)}" for name in options)
+            )
+        else:
+            lines.append(
+                f"⚠️ <b>«{html.escape(chunk)}» не нашёл</b> — либо опечатка, "
+                f"либо этого заклинания нет в каталоге. Напишите, добавлю."
+            )
     await update.message.reply_html("\n\n".join(lines))
 
 

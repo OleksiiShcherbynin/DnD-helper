@@ -109,6 +109,30 @@ def parse_member(text: str) -> tuple[str, str, int, str | None] | None:
 _SPELL_ACTIONS = {"add": True, "добавить": True, "remove": False, "убрать": False}
 
 
+def _resolve_name(wanted: str, catalog_names: list[str]) -> str | None:
+    """
+    Найти название по началу. Неоднозначное не угадывается.
+
+    Точное совпадение побеждает: "shield" — это целиком название заклинания,
+    хотя оно же начинает "Shield of Faith". Отказ из-за такого предшествования
+    закрыл бы ввод половины каталога — коротких названий, у которых есть более
+    длинные родственники.
+    """
+    exact = [name for name in catalog_names if name.lower() == wanted]
+    if exact:
+        return exact[0]
+
+    matches = [name for name in catalog_names if name.lower().startswith(wanted)]
+    return matches[0] if len(matches) == 1 else None
+
+
+def candidates_for(wanted: str, catalog_names: list[str], limit: int = 6) -> list[str]:
+    """Что подошло под неоднозначное начало — чтобы было из чего выбрать."""
+    return sorted(
+        name for name in catalog_names if name.lower().startswith(wanted.strip().lower())
+    )[:limit]
+
+
 def parse_spell_command(
     text: str, catalog_names: list[str]
 ) -> tuple[str | None, bool, list[str], list[str]] | None:
@@ -145,11 +169,11 @@ def parse_spell_command(
         wanted = chunk.strip().lower()
         if not wanted:
             continue
-        matches = [name for name in catalog_names if name.lower().startswith(wanted)]
-        if len(matches) == 1:
-            found.append(matches[0])
-        else:
+        match = _resolve_name(wanted, catalog_names)
+        if match is None:
             unknown.append(chunk.strip())
+        else:
+            found.append(match)
 
     if not found and not unknown:
         return None
@@ -290,14 +314,12 @@ def parse_enemies(
             unknown.append(chunk)
             continue
 
-        matches = [
-            name for name in catalog_names if name.lower().startswith(name_part)
-        ]
-        if len(matches) != 1:
+        match = _resolve_name(name_part, catalog_names)
+        if match is None:
             unknown.append(name_part)
             continue
 
-        resolved.append((matches[0], count))
+        resolved.append((match, count))
 
     return resolved, unknown
 
