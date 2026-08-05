@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 
 from core.class_profiles import EXTRA_CLASS_DATA, display_name
+from core.spell_lists import EXTRA_SPELLS
 from core.models import Attack, ClassData, Creature, Spell, SpellRole
 
 #: Куда tools/sync_catalog.py кладёт загруженный каталог.
@@ -387,11 +388,18 @@ def load_beasts(path: Path | str | None = None) -> list[Creature]:
 
 
 def load_spells(path: Path | str | None = None) -> list[Spell]:
-    """Прочитать сохранённый каталог заклинаний с диска."""
-    return [
+    """
+    Прочитать каталог заклинаний с диска.
+
+    К нему добавляются заклинания вне SRD: открытый документ содержит 319 из
+    примерно 360 заклинаний PHB, и часть привычных за столом — Thorn Whip,
+    Hex — в него не попала.
+    """
+    from_catalog = [
         parse_spell(item)
         for item in _load_raw(Path(path) if path is not None else DEFAULT_SPELLS_PATH)
     ]
+    return [*from_catalog, *EXTRA_SPELLS]
 
 
 def load_classes(path: Path | str | None = None) -> dict[str, ClassData]:

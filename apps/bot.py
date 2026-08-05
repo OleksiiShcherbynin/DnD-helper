@@ -412,11 +412,14 @@ async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     if parsed is None:
         await update.message.reply_html(
-            "Не разобрал. Примеры:\n"
+            "Не нашёл такого заклинания. Примеры:\n"
             "<code>/spell add fireball</code>\n"
             "<code>/spell Кузьма add cure wounds</code>\n"
             "<code>/spell remove web</code>\n\n"
-            "Названия английские, хватает начала: <code>/spell add cure</code>."
+            "Названия английские, хватает начала: <code>/spell add cure</code>. "
+            "Если начало подходит нескольким — уточните.\n\n"
+            "<i>Каталог собран по SRD, а в нём 319 заклинаний из примерно 360 "
+            "в PHB. Если вашего нет — напишите, добавлю вручную.</i>"
         )
         return
 

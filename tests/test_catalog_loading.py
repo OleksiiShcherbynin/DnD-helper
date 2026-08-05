@@ -67,10 +67,25 @@ def test_loads_saved_spells(tmp_path):
     path = tmp_path / "spells.json"
     path.write_text(json.dumps(raw), encoding="utf-8")
 
-    spells = load_spells(path)
+    spells = {spell.name: spell for spell in load_spells(path)}
 
-    assert [spell.name for spell in spells] == ["Fireball"]
-    assert spells[0].role == "damage"
+    assert "Fireball" in spells
+    assert spells["Fireball"].role == "damage"
+
+
+def test_spells_outside_the_srd_are_added_to_the_catalog(tmp_path):
+    """
+    В открытом документе 319 заклинаний из примерно 360 в PHB. Привычные за
+    столом Thorn Whip и Hex в него не попали, и без них список персонажа
+    пришлось бы вести не полностью.
+    """
+    path = tmp_path / "spells.json"
+    path.write_text("[]", encoding="utf-8")
+
+    names = {spell.name for spell in load_spells(path)}
+
+    assert "Thorn Whip" in names
+    assert "Hex" in names
 
 
 def test_missing_catalog_says_how_to_fix_it(tmp_path):

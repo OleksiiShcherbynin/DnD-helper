@@ -9,6 +9,8 @@
 не падает — заклинание молча исчезает из выдачи.
 """
 
+from core.models import Spell
+
 #: Изобретатель (Tasha's Cauldron of Everything).
 #:
 #: Из 66 заклинаний класса в SRD есть 57. Отсутствуют пришедшие вместе с
@@ -44,6 +46,43 @@ ARTIFICER_SPELLS = frozenset({
     "srd_animate-objects", "srd_creation", "srd_greater-restoration",
     "srd_wall-of-stone", "srd_arcane-hand",
 })
+
+#: Заклинания, которых нет в открытом документе.
+#:
+#: SRD 5.1 содержит 319 заклинаний из примерно 360 в PHB, и часть привычных за
+#: столом в него не попала. Здесь они описаны минимумом полей, которые
+#: программа действительно использует: круг, школа, классы, роль и тип урона.
+#: Описаний нет и не будет — это чужой текст, а механика текстом не является.
+#:
+#: Добавить ещё — дописать строку.
+EXTRA_SPELLS: tuple[Spell, ...] = (
+    Spell(
+        key="phb_thorn-whip",
+        name="Thorn Whip",
+        level=0,
+        school="transmutation",
+        classes=["srd_druid"],
+        casting_time="action",
+        duration="instantaneous",
+        role="damage",
+        damage_dice="1d6",
+        damage_types=frozenset({"piercing"}),
+    ),
+    Spell(
+        key="phb_hex",
+        name="Hex",
+        level=1,
+        school="enchantment",
+        classes=["srd_warlock"],
+        casting_time="bonus action",
+        duration="1 hour",
+        concentration=True,
+        role="damage",
+        damage_dice="1d6",
+        damage_types=frozenset({"necrotic"}),
+    ),
+)
+
 
 #: Артиллерист получает эти заклинания сверх списка класса, и они всегда
 #: подготовлены. Круги открываются по общей прогрессии Изобретателя.
