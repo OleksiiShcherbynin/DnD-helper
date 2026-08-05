@@ -36,7 +36,7 @@ from core.class_profiles import (
     subclass_profile,
 )
 from core.encounter import estimate_encounter
-from core.models import ABILITY_NAMES, ROLE_NAMES
+from core.models import ABILITIES, ABILITY_NAMES, ROLE_NAMES, Stats
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
@@ -123,6 +123,61 @@ explainer = get_explainer()
 ALL_CLASSES = list(CASTERS) + [f"srd_{key}" for key in NON_CASTER_NAMES]
 
 
+#: 0 в поле значит «не введено»: отличить пустое от настоящего нуля иначе
+#: нельзя, а AC или урон 0 в 5e не бывает.
+_NOT_ENTERED = 0
+
+
+def _optional(value: int | float | None) -> int:
+    return int(value) if value else _NOT_ENTERED
+
+
+def _entered(value: int) -> int | None:
+    return value if value != _NOT_ENTERED else None
+
+
+def _edit_stats(owner: str, member_name: str | None, current: Stats) -> None:
+    """
+    Форма ввода чисел. Сохраняет сразу, как и остальные поля на этой странице.
+
+    Пустым считается ноль: в 5e не бывает ни AC 0, ни урона 0, а различать
+    «не введено» и «введён ноль» отдельным флажком значит удвоить число полей.
+    """
+    suffix = member_name or "own"
+    columns = st.columns(3)
+    abilities: dict[str, int] = {}
+    for index, code in enumerate(ABILITIES):
+        value = columns[index % 3].number_input(
+            ABILITY_NAMES[code], 0, 30, current.abilities.get(code, _NOT_ENTERED),
+            key=f"ability_{code}_{suffix}",
+        )
+        if value != _NOT_ENTERED:
+            abilities[code] = int(value)
+
+    combat = st.columns(4)
+    ac = combat[0].number_input("AC", 0, 40, _optional(current.ac), key=f"ac_{suffix}")
+    hp = combat[1].number_input("Хиты", 0, 999, _optional(current.hp), key=f"hp_{suffix}")
+    attack = combat[2].number_input(
+        "Атака", -5, 30, current.attack_bonus or _NOT_ENTERED, key=f"atk_{suffix}"
+    )
+    damage = combat[3].number_input(
+        "Урон", 0, 999, _optional(current.damage_per_round), key=f"dmg_{suffix}"
+    )
+
+    filled = Stats(
+        abilities=abilities,
+        ac=_entered(int(ac)),
+        hp=_entered(int(hp)),
+        attack_bonus=_entered(int(attack)),
+        damage_per_round=float(damage) if damage != _NOT_ENTERED else None,
+    )
+    if filled != current:
+        # Полная замена, а не дополнение: форма показывает лист целиком,
+        # поэтому очищенное поле должно очищаться, а не оставаться прежним.
+        storage.replace_stats(owner, member_name, filled)
+        st.rerun()
+
+
 def _pick_subclass(class_key: str, current: str | None, widget_key: str) -> str | None:
     """
     Выпадающий список подклассов — только тех, что принадлежат этому классу.
@@ -164,6 +219,13 @@ with st.sidebar:
             LOCAL_OWNER, class_key=class_key, level=level, subclass_key=subclass_key
         )
         own = storage.get_character(LOCAL_OWNER)
+
+    with st.expander("Числа персонажа"):
+        st.caption(
+            "Всё необязательно. Незаполненное считается по классу и уровню, "
+            "а введённое перебивает расчёт."
+        )
+        _edit_stats(LOCAL_OWNER, None, own.stats if own else Stats())
 
     st.header("Отряд")
     allies = storage.party_members(LOCAL_OWNER)

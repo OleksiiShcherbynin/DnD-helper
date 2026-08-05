@@ -6,7 +6,7 @@
 попутно отсекая известные ловушки в данных источника.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -134,6 +134,40 @@ class Character:
     name: str = ""
     #: Подкласс, если выбран: он меняет и заклинания, и правила.
     subclass_key: str | None = None
+    #: Что про персонажа ввели руками. Пустое — считаем сами.
+    stats: "Stats" = field(default_factory=lambda: Stats())
+
+
+@dataclass(frozen=True)
+class Stats:
+    """
+    Числа, введённые про персонажа вручную. Всё необязательно.
+
+    Пустое поле означает «посчитай сам», а не ноль. Заполнять можно сколько
+    угодно и в любом порядке: каждое введённое число уточняет расчёт, а
+    остальное продолжает оцениваться по классу и уровню.
+    """
+
+    #: Характеристики короткими кодами: {"dex": 16}. Заполненные не обязаны
+    #: покрывать все шесть.
+    abilities: dict[str, int] = field(default_factory=dict)
+
+    ac: int | None = None
+    hp: int | None = None
+    attack_bonus: int | None = None
+    damage_per_round: float | None = None
+
+    @property
+    def combat_is_complete(self) -> bool:
+        """Все боевые числа введены — значит гадать больше не о чем."""
+        return None not in (self.ac, self.hp, self.attack_bonus, self.damage_per_round)
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.abilities and not any(
+            value is not None
+            for value in (self.ac, self.hp, self.attack_bonus, self.damage_per_round)
+        )
 
 
 @dataclass(frozen=True)
@@ -154,6 +188,8 @@ class PartyMember:
     #: дал владелец; у остальных подставляется название класса.
     name: str = ""
     subclass_key: str | None = None
+    #: Что про участника ввели руками. Пустое — считаем сами.
+    stats: "Stats" = field(default_factory=lambda: Stats())
 
 
 #: Роль заклинания в партии. По ней ищутся дыры в составе: если контроль уже

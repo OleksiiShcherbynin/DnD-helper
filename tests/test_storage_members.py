@@ -11,6 +11,7 @@ import sqlite3
 import pytest
 
 from adapters.sqlite_storage import Storage, StorageTooNew
+from core.models import Stats
 
 #: Схема, с которой бот работал до появления ручных участников. Нужна, чтобы
 #: проверить миграцию на настоящих данных, а не на выдуманных.
@@ -183,6 +184,72 @@ def test_the_old_artillerist_class_becomes_a_subclass(tmp_path):
 
     assert character.class_key == "hb_artificer"
     assert character.subclass_key == "artillerist"
+
+
+def test_stats_are_empty_until_entered(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    assert storage.get_character("вася").stats.is_empty
+
+
+def test_stats_are_remembered(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.update_stats("вася", None, Stats(ac=17, abilities={"wis": 18}))
+
+    stats = storage.get_character("вася").stats
+    assert stats.ac == 17
+    assert stats.abilities == {"wis": 18}
+
+
+def test_updates_merge_instead_of_replacing(storage):
+    """
+    Вводить всё одной командой невозможно, поэтому дополнить лист нельзя
+    ценой стирания того, что уже введено.
+    """
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.update_stats("вася", None, Stats(ac=17, abilities={"wis": 18}))
+    storage.update_stats("вася", None, Stats(hp=44, abilities={"con": 14}))
+
+    stats = storage.get_character("вася").stats
+    assert (stats.ac, stats.hp) == (17, 44)
+    assert stats.abilities == {"wis": 18, "con": 14}
+
+
+def test_replacing_clears_what_was_left_out(storage):
+    """
+    Формы показывают лист целиком, поэтому очищенное там поле обязано
+    очиститься. Команды в боте вводят по частям и дополняют.
+    """
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.update_stats("вася", None, Stats(ac=17, hp=44))
+
+    storage.replace_stats("вася", None, Stats(ac=18))
+
+    stats = storage.get_character("вася").stats
+    assert stats.ac == 18
+    assert stats.hp is None, "незаполненное в форме должно стираться"
+
+
+def test_stats_of_a_member_are_set_by_name(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.add_member("вася", name="Кузьма", class_key="hb_artificer", level=5)
+
+    assert storage.update_stats("вася", "кузьма", Stats(damage_per_round=22.0)) is True
+    assert storage.party_members("вася")[0].stats.damage_per_round == 22.0
+
+
+def test_stats_of_a_stranger_are_refused(storage):
+    """Чужой персонаж принадлежит тому, кто им играет."""
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.save_character("петя", class_key="srd_cleric", level=4)
+    code = storage.create_party("вася")
+    storage.join_party("петя", code)
+
+    assert storage.update_stats("вася", "жрец", Stats(ac=20)) is False
+
+
+def test_setting_stats_for_nobody_is_not_an_error(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    assert storage.update_stats("вася", "Никого", Stats(ac=20)) is False
 
 
 def test_database_from_a_newer_version_says_to_restart(tmp_path):

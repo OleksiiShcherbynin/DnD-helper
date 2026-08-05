@@ -19,11 +19,16 @@
 
 from dataclasses import dataclass
 
-from core.class_profiles import ARTIFICER, display_name
+from core.class_profiles import ARTIFICER, display_name, profile
 from core.models import ClassData, PartyMember
 
-#: Модификатор основной характеристики. Обычный путь: начать с +3 и поднимать
-#: повышениями характеристик до потолка в +5.
+def ability_modifier(score: int) -> int:
+    """Модификатор характеристики: (значение - 10), делённое на два вниз."""
+    return (score - 10) // 2
+
+
+#: Модификатор основной характеристики, когда её не ввели. Обычный путь:
+#: начать с +3 и поднимать повышениями характеристик до потолка в +5.
 def _primary_modifier(level: int) -> int:
     if level >= 8:
         return 5
@@ -132,25 +137,64 @@ def _damage_per_round(archetype: Archetype, level: int, modifier: int) -> float:
     return _attacks_at(archetype, level) * (_WEAPON_DIE_AVERAGE + modifier)
 
 
+def _casting_ability(class_key: str) -> str | None:
+    """Какая характеристика у класса основная. У неизвестных — ничего."""
+    try:
+        return profile(class_key).ability
+    except KeyError:
+        return None
+
+
 def estimate_member(
     member: PartyMember, *, classes: dict[str, ClassData]
 ) -> MemberEstimate:
-    """Прикинуть боевые характеристики персонажа по классу и уровню."""
+    """
+    Собрать боевые числа персонажа.
+
+    Каждое берётся по цепочке: явно введённое, потом выведенное из
+    характеристик, потом оценка по классу и уровню. Это единственное место,
+    где решается «откуда взялась цифра».
+
+    AC из характеристик не выводится: он зависит от доспеха, которого мы не
+    знаем, и Ловкость 20 у латника не значит ничего. Его либо вводят, либо
+    берётся типичный для класса.
+    """
     archetype = _ARCHETYPES.get(member.class_key, _FALLBACK)
     data = classes.get(member.class_key)
     hit_die = data.hit_die if data else _FALLBACK_HIT_DIE
     level = max(1, member.level)
-    modifier = _primary_modifier(level)
+    sheet = member.stats
+
+    primary = _casting_ability(member.class_key)
+    modifier = (
+        ability_modifier(sheet.abilities[primary])
+        if primary and primary in sheet.abilities
+        else _primary_modifier(level)
+    )
+    constitution = (
+        ability_modifier(sheet.abilities["con"])
+        if "con" in sheet.abilities
+        else _CONSTITUTION_MODIFIER
+    )
 
     # Хиты: полная кость на первом уровне, среднее на остальных, плюс Телосложение.
     average_per_level = hit_die / 2 + 1
-    hp = int(hit_die + (level - 1) * average_per_level + _CONSTITUTION_MODIFIER * level)
+    hp = int(hit_die + (level - 1) * average_per_level + constitution * level)
 
     return MemberEstimate(
         name=data.name if data else display_name(member.class_key),
         level=level,
-        ac=archetype.ac,
-        hp=hp,
-        attack_bonus=proficiency_bonus(level) + modifier,
-        damage_per_round=round(_damage_per_round(archetype, level, modifier), 1),
+        ac=sheet.ac if sheet.ac is not None else archetype.ac,
+        hp=sheet.hp if sheet.hp is not None else hp,
+        attack_bonus=(
+            sheet.attack_bonus
+            if sheet.attack_bonus is not None
+            else proficiency_bonus(level) + modifier
+        ),
+        damage_per_round=(
+            sheet.damage_per_round
+            if sheet.damage_per_round is not None
+            else round(_damage_per_round(archetype, level, modifier), 1)
+        ),
+        approximate=not sheet.combat_is_complete,
     )

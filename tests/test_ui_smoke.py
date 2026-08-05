@@ -184,6 +184,31 @@ def test_moon_druid_is_offered_bigger_beasts():
     assert offered, "формы не показаны"
 
 
+def test_entered_numbers_change_the_fight_estimate(database_path):
+    """
+    Ради этого фаза и делалась: введённые хиты и урон должны попадать в
+    расчёт боя, а не украшать карточку персонажа.
+    """
+    from adapters.sqlite_storage import Storage
+    from core.models import Stats
+
+    before = _app()
+    _widget_by_label(before.multiselect, "Кто против вас").set_value(["Ogre"]).run()
+    weak = " ".join(str(m.value) for m in list(before.success) + list(before.error))
+
+    storage = Storage(database_path)
+    storage.update_stats(
+        "local", None, Stats(hp=250, damage_per_round=90.0, attack_bonus=12)
+    )
+
+    after = _app()
+    _widget_by_label(after.multiselect, "Кто против вас").set_value(["Ogre"]).run()
+
+    assert not after.exception, [str(e) for e in after.exception]
+    strong = " ".join(str(m.value) for m in list(after.success) + list(after.error))
+    assert strong != weak, "введённые числа не дошли до расчёта"
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

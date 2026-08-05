@@ -14,12 +14,13 @@
 посчитается неполным.
 """
 
+import json
 import secrets
 import sqlite3
 from pathlib import Path
 
 from core.class_profiles import display_name
-from core.models import Character, PartyMember
+from core.models import ABILITIES, Character, PartyMember, Stats
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS characters (
@@ -30,7 +31,11 @@ CREATE TABLE IF NOT EXISTS characters (
     class_key   TEXT NOT NULL,
     level       INTEGER NOT NULL,
     party_code  TEXT,
-    subclass_key TEXT
+    subclass_key TEXT,
+    -- Введённые вручную числа одним полем JSON. Отдельными колонками их было
+    -- бы десять, и каждое новое требовало бы менять схему; по ним никогда не
+    -- ищут, поэтому хранить их разобранными незачем.
+    stats       TEXT
 );
 CREATE TABLE IF NOT EXISTS parties (
     code       TEXT PRIMARY KEY,
@@ -44,7 +49,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
 """
 
 #: Версия схемы, которую понимает этот код. Поднимается при каждой её смене.
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 #: Артиллерист какое-то время был отдельным классом. Персонажи, созданные
 #: тогда, переезжают на класс с подклассом.
@@ -65,8 +70,67 @@ _CODE_LENGTH = 6
 _MEMBER_COLUMNS = "class_key, level, name, subclass_key"
 
 
+def _decode_stats(raw: str | None) -> Stats:
+    """Разобрать введённые числа. Битое поле не должно ронять весь отряд."""
+    if not raw:
+        return Stats()
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return Stats()
+    return Stats(
+        abilities={
+            key: int(value)
+            for key, value in (data.get("abilities") or {}).items()
+            if key in ABILITIES
+        },
+        ac=data.get("ac"),
+        hp=data.get("hp"),
+        attack_bonus=data.get("attack_bonus"),
+        damage_per_round=data.get("damage_per_round"),
+    )
+
+
+def _encode_stats(stats: Stats) -> str:
+    return json.dumps(
+        {
+            "abilities": stats.abilities,
+            "ac": stats.ac,
+            "hp": stats.hp,
+            "attack_bonus": stats.attack_bonus,
+            "damage_per_round": stats.damage_per_round,
+        },
+        ensure_ascii=False,
+    )
+
+
+def _merge_stats(current: Stats, patch: Stats) -> Stats:
+    """
+    Дополнить лист, а не заменить его.
+
+    Ввести всё одной командой невозможно, поэтому каждая правка обязана
+    сохранять то, что уже введено, — иначе второй ввод стирал бы первый.
+    """
+    return Stats(
+        abilities={**current.abilities, **patch.abilities},
+        ac=patch.ac if patch.ac is not None else current.ac,
+        hp=patch.hp if patch.hp is not None else current.hp,
+        attack_bonus=(
+            patch.attack_bonus if patch.attack_bonus is not None else current.attack_bonus
+        ),
+        damage_per_round=(
+            patch.damage_per_round
+            if patch.damage_per_round is not None
+            else current.damage_per_round
+        ),
+    )
+
+
 def _row_to_member(row) -> PartyMember:
-    return PartyMember(class_key=row[0], level=row[1], name=row[2], subclass_key=row[3])
+    return PartyMember(
+        class_key=row[0], level=row[1], name=row[2],
+        subclass_key=row[3], stats=_decode_stats(row[4]),
+    )
 
 
 class Storage:
@@ -79,16 +143,17 @@ class Storage:
         self._refuse_if_newer_than_code()
         self._migrate_if_needed()
         self._db.executescript(_SCHEMA)
-        self._add_subclass_column()
+        self._add_missing_columns()
         self._retire_old_class_keys()
         self._remember_version()
         self._db.commit()
 
-    def _add_subclass_column(self) -> None:
-        """Дополнить существующую таблицу колонкой подкласса, не теряя записей."""
+    def _add_missing_columns(self) -> None:
+        """Дополнить существующую таблицу новыми колонками, не теряя записей."""
         columns = {row[1] for row in self._db.execute("PRAGMA table_info(characters)")}
-        if "subclass_key" not in columns:
-            self._db.execute("ALTER TABLE characters ADD COLUMN subclass_key TEXT")
+        for name in ("subclass_key", "stats"):
+            if name not in columns:
+                self._db.execute(f"ALTER TABLE characters ADD COLUMN {name} TEXT")
 
     def _retire_old_class_keys(self) -> None:
         """Перевести классы, которые стали подклассами."""
@@ -190,7 +255,7 @@ class Storage:
 
     def get_character(self, user_id: str) -> Character | None:
         row = self._db.execute(
-            "SELECT class_key, level, party_code, name, subclass_key FROM characters "
+            "SELECT class_key, level, party_code, name, subclass_key, stats FROM characters "
             "WHERE telegram_id = ?",
             (user_id,),
         ).fetchone()
@@ -198,8 +263,58 @@ class Storage:
             return None
         return Character(
             class_key=row[0], level=row[1], party_code=row[2],
-            name=row[3], subclass_key=row[4],
+            name=row[3], subclass_key=row[4], stats=_decode_stats(row[5]),
         )
+
+    def replace_stats(self, owner_id: str, name: str | None, stats: Stats) -> bool:
+        """
+        Записать лист целиком, стирая незаполненное.
+
+        Нужно формам: они показывают лист полностью, и очищенное там поле
+        обязано очиститься. Команды в боте вводят по частям и пользуются
+        update_stats.
+        """
+        return self._write_stats(owner_id, name, lambda _: stats)
+
+    def update_stats(self, owner_id: str, name: str | None, patch: Stats) -> bool:
+        """
+        Дополнить лист персонажа введёнными числами.
+
+        name = None — свой персонаж. Иначе имя того, кого владелец завёл сам:
+        чужие персонажи принадлежат тем, кто ими играет, и правке не подлежат.
+
+        Возвращает False, если такого персонажа у владельца нет: опечатка в
+        имени — обычное дело, и падать из-за неё незачем.
+        """
+        return self._write_stats(owner_id, name, lambda current: _merge_stats(current, patch))
+
+    def _write_stats(self, owner_id: str, name: str | None, change) -> bool:
+        if name is None:
+            row = self._db.execute(
+                "SELECT id, stats FROM characters WHERE telegram_id = ?", (owner_id,)
+            ).fetchone()
+        else:
+            wanted = name.strip().casefold()
+            # Сравнение в Python: встроенный lower() в SQLite кириллицу не трогает.
+            rows = self._db.execute(
+                "SELECT id, stats, name FROM characters "
+                "WHERE owner_id = ? AND telegram_id IS NULL",
+                (owner_id,),
+            ).fetchall()
+            row = next(
+                ((item[0], item[1]) for item in rows if item[2].casefold() == wanted),
+                None,
+            )
+
+        if row is None:
+            return False
+
+        updated = change(_decode_stats(row[1]))
+        self._db.execute(
+            "UPDATE characters SET stats = ? WHERE id = ?", (_encode_stats(updated), row[0])
+        )
+        self._db.commit()
+        return True
 
     # ── Участники, заведённые вручную ─────────────────────────────────────────
 
@@ -311,13 +426,13 @@ class Storage:
 
         if character.party_code:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key FROM characters "
+                "SELECT class_key, level, name, subclass_key, stats FROM characters "
                 "WHERE party_code = ? ORDER BY telegram_id IS NULL, name",
                 (character.party_code,),
             )
         else:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key FROM characters "
+                "SELECT class_key, level, name, subclass_key, stats FROM characters "
                 "WHERE owner_id = ? ORDER BY telegram_id IS NULL, name",
                 (user_id,),
             )
@@ -340,7 +455,7 @@ class Storage:
             else ("owner_id = ?", user_id)
         )
         rows = self._db.execute(
-            f"SELECT class_key, level, name, subclass_key FROM characters "
+            f"SELECT class_key, level, name, subclass_key, stats FROM characters "
             f"WHERE {where[0]} AND (telegram_id IS NULL OR telegram_id != ?) "
             f"ORDER BY telegram_id IS NULL, name",
             (where[1], user_id),

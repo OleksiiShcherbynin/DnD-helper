@@ -16,11 +16,12 @@ from apps.formatting import (
     parse_character,
     parse_enemies,
     parse_member,
+    parse_stats,
 )
 from core.party_sheet import build_party_sheet
 from core.advisor import ADVISORS, advise
 from core.class_profiles import parse_class
-from core.models import Character, PartyMember
+from core.models import Character, PartyMember, Stats
 from core.request import AdviceRequest
 
 
@@ -124,6 +125,49 @@ def test_subclass_of_another_class_is_refused():
 ])
 def test_broken_member_line_is_refused(text):
     assert parse_member(text) is None
+
+
+def test_stats_without_a_name_are_for_yourself():
+    assert parse_stats("сил 16 лов 14") == (
+        None, Stats(abilities={"str": 16, "dex": 14})
+    )
+
+
+def test_stats_with_a_name_are_for_that_member():
+    """Имя — всё, что стоит до первого понятного ключа, хоть в три слова."""
+    assert parse_stats("Сир Гарет hp 44 урон 22") == (
+        "Сир Гарет", Stats(hp=44, damage_per_round=22.0)
+    )
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("кд 17", Stats(ac=17)),
+    ("ac 17", Stats(ac=17)),
+    ("хиты 44", Stats(hp=44)),
+    ("атака 7", Stats(attack_bonus=7)),
+    ("мдр 18", Stats(abilities={"wis": 18})),
+    ("МДР 18", Stats(abilities={"wis": 18})),
+])
+def test_keys_are_understood_in_both_languages(text, expected):
+    assert parse_stats(text) == (None, expected)
+
+
+def test_a_negative_attack_bonus_is_allowed():
+    """Бонус атаки бывает отрицательным, и минус нельзя терять."""
+    assert parse_stats("атака -1") == (None, Stats(attack_bonus=-1))
+
+
+@pytest.mark.parametrize("text", ["", "чепуха", "сил", "Кузьма", "сил лов"])
+def test_unparsable_stats_are_refused(text):
+    assert parse_stats(text) is None
+
+
+def test_a_key_without_a_number_invalidates_the_line():
+    """
+    Принять половину строки значит записать не то, что просили, и промолчать
+    про остальное. Лучше переспросить целиком.
+    """
+    assert parse_stats("сил 16 лов") is None
 
 
 CATALOG_NAMES = ["Goblin", "Orc", "Ogre", "Young Red Dragon", "Giant Spider"]

@@ -47,10 +47,12 @@ from apps.formatting import (
     parse_character,
     parse_enemies,
     parse_member,
+    parse_stats,
 )
 from core.advisor import ADVISORS, advise
 from core.class_profiles import display_name, subclass_profile
 from core.encounter import estimate_encounter
+from core.models import ABILITY_NAMES, Stats
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
@@ -67,6 +69,7 @@ HELP = (
     "/me друид 6 — задать своего персонажа\n"
     "/member Гарет воин 5 — добавить того, кто ботом не пользуется\n"
     "/member remove Гарет — убрать его\n"
+    "/stats сил 16 кд 17 — вписать числа, можно по частям\n"
     "/party create — создать партию и получить код\n"
     "/party join КОД — вступить в чужую партию\n\n"
     "<b>Как спрашивать</b>\n"
@@ -316,6 +319,56 @@ async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, *, preferr
     await update.message.reply_html(format_advice(advice), reply_markup=keyboard)
 
 
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Вписать числа персонажа. Всё необязательно и дополняется по частям.
+
+        /stats сил 16 лов 14 тел 15
+        /stats Кузьма урон 22 кд 17
+    """
+    deps, user_id = _deps(context), _user_id(update)
+
+    if deps.storage.get_character(user_id) is None:
+        await update.message.reply_html(
+            "Сначала задайте своего персонажа: <code>/me друид 6</code>"
+        )
+        return
+
+    parsed = parse_stats(" ".join(context.args))
+    if parsed is None:
+        await update.message.reply_html(
+            "Не разобрал. Примеры:\n"
+            "<code>/stats сил 16 лов 14 тел 15</code>\n"
+            "<code>/stats Кузьма урон 22 кд 17</code>\n\n"
+            "Ключи: сил, лов, тел, инт, мдр, хар, кд, хиты, атака, урон.\n"
+            "Вводить можно по частям — то, что не введено, считается само."
+        )
+        return
+
+    name, patch = parsed
+    if not deps.storage.update_stats(user_id, name, patch):
+        await update.message.reply_html(
+            f"Не нашёл {html.escape(name or 'персонажа')} среди тех, кого вы заводили."
+        )
+        return
+
+    whose = html.escape(name) if name else "вашего персонажа"
+    await update.message.reply_html(f"Записал для {whose}: {_describe_stats(patch)}.")
+
+
+def _describe_stats(patch: Stats) -> str:
+    parts = [
+        f"{ABILITY_NAMES[key]} {value}" for key, value in patch.abilities.items()
+    ]
+    for label, value in (
+        ("AC", patch.ac), ("хиты", patch.hp),
+        ("атака", patch.attack_bonus), ("урон", patch.damage_per_round),
+    ):
+        if value is not None:
+            parts.append(f"{label} {value:g}" if isinstance(value, float) else f"{label} {value}")
+    return ", ".join(parts)
+
+
 async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Оценить бой: /fight goblin 4, ogre"""
     deps, user_id = _deps(context), _user_id(update)
@@ -421,6 +474,7 @@ def build_handlers() -> list:
         CommandHandler("forms", forms),
         CommandHandler("fight", fight),
         CommandHandler("member", member),
+        CommandHandler("stats", stats),
         CallbackQueryHandler(explain, pattern="^explain$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_text),
     ]

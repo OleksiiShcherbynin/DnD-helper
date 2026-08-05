@@ -19,7 +19,14 @@ from core.class_profiles import (
     parse_subclass,
     subclass_profile,
 )
-from core.models import ABILITY_NAMES, ROLE_NAMES, Character, PartyMember
+from core.models import (
+    ABILITIES as _ABILITY_CODES,
+    ABILITY_NAMES,
+    ROLE_NAMES,
+    Character,
+    PartyMember,
+    Stats,
+)
 from core.party_sheet import PartySheet
 
 #: Уровни персонажа в D&D 5e.
@@ -97,6 +104,74 @@ def parse_member(text: str) -> tuple[str, str, int, str | None] | None:
         return None
 
     return (name, class_key, level, subclass_key)
+
+
+#: Как называют характеристики и боевые числа. Русские сокращения — те, что
+#: пишут в листах персонажа; английские — потому что половина стола говорит
+#: "ac", а не "кд".
+_STAT_KEYS: dict[str, str] = {
+    "сил": "str", "сила": "str", "str": "str",
+    "лов": "dex", "ловкость": "dex", "dex": "dex",
+    "тел": "con", "телосложение": "con", "con": "con",
+    "инт": "int", "интеллект": "int", "int": "int",
+    "мдр": "wis", "мудрость": "wis", "wis": "wis",
+    "хар": "cha", "харизма": "cha", "cha": "cha",
+    "кд": "ac", "ac": "ac", "бронь": "ac",
+    "хп": "hp", "хиты": "hp", "hp": "hp",
+    "атака": "attack_bonus", "attack": "attack_bonus", "попадание": "attack_bonus",
+    "урон": "damage_per_round", "damage": "damage_per_round", "дпр": "damage_per_round",
+}
+
+
+def parse_stats(text: str) -> tuple[str | None, Stats] | None:
+    """
+    Разобрать строку вида "Сир Гарет hp 44 урон 22" или "сил 16 лов 14".
+
+    Имя — всё, что стоит до первого понятного ключа; без него правится
+    собственный персонаж. Ключей может быть сколько угодно и в любом порядке.
+
+    Строка с ключом без числа отвергается целиком: записать половину
+    просимого и промолчать про остальное хуже, чем переспросить.
+    """
+    parts = (text or "").split()
+    first_key = next(
+        (index for index, part in enumerate(parts) if part.lower() in _STAT_KEYS), None
+    )
+    if first_key is None:
+        return None
+
+    name = " ".join(parts[:first_key]).strip() or None
+
+    abilities: dict[str, int] = {}
+    overrides: dict[str, int] = {}
+    rest = parts[first_key:]
+    if len(rest) % 2:
+        return None
+
+    for key_text, value_text in zip(rest[::2], rest[1::2]):
+        key = _STAT_KEYS.get(key_text.lower())
+        try:
+            value = int(value_text)
+        except ValueError:
+            return None
+        if key is None:
+            return None
+        if key in _ABILITY_CODES:
+            abilities[key] = value
+        else:
+            overrides[key] = value
+
+    return name, Stats(
+        abilities=abilities,
+        ac=overrides.get("ac"),
+        hp=overrides.get("hp"),
+        attack_bonus=overrides.get("attack_bonus"),
+        damage_per_round=(
+            float(overrides["damage_per_round"])
+            if "damage_per_round" in overrides
+            else None
+        ),
+    )
 
 
 #: "goblin 4", "4 goblin", "goblin x4" — число где угодно, и его может не быть.
