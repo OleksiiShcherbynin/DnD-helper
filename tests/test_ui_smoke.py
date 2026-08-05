@@ -244,6 +244,44 @@ def test_two_members_with_the_same_name_do_not_break_the_page(database_path):
     assert not app.exception, [str(e) for e in app.exception]
 
 
+def test_watching_a_party_shows_it_without_joining_it(database_path):
+    """
+    Сайт — окно в отряд, а не ещё один игрок. Раньше ввод кода добавлял туда
+    его заглушку, и в партии появлялся пустой друид, которого никто не создавал.
+    """
+    from adapters.sqlite_storage import Storage
+
+    storage = Storage(database_path)
+    storage.save_character("вася", class_key="srd_druid", level=4)
+    storage.add_member("вася", name="Миша", class_key="hb_artificer", level=4)
+    code = storage.create_party("вася")
+    storage.watch_party("local", code, acting_as="Друид")
+
+    app = _app()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    assert len(storage.party_by_code(code)) == 2, "сайт добавил кого-то от себя"
+
+    shown = " ".join(str(w.value) for w in app.sidebar.markdown)
+    assert "Миша" in shown
+
+
+def test_acting_as_a_party_member_edits_that_character(database_path):
+    """Правки на сайте попадают в настоящего персонажа, а не в его копию."""
+    from adapters.sqlite_storage import Storage
+
+    storage = Storage(database_path)
+    storage.save_character("вася", class_key="srd_druid", level=4)
+    code = storage.create_party("вася")
+    storage.watch_party("local", code, acting_as="Друид")
+
+    app = _app()
+    app.sidebar.slider[0].set_value(9).run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    assert storage.get_character("вася").level == 9
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

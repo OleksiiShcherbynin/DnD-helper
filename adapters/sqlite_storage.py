@@ -17,6 +17,7 @@
 import json
 import secrets
 import sqlite3
+from dataclasses import dataclass
 from pathlib import Path
 
 from core.class_profiles import display_name
@@ -50,10 +51,19 @@ CREATE INDEX IF NOT EXISTS characters_by_owner ON characters (owner_id);
 CREATE UNIQUE INDEX IF NOT EXISTS characters_by_telegram
     ON characters (telegram_id) WHERE telegram_id IS NOT NULL;
 CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
+-- За кем наблюдает интерфейс без аккаунтов. Сайт не игрок: он смотрит на
+-- партию по коду и выступает за одного из тех, кто в ней уже есть. Раньше он
+-- заводил себе персонажа и вступал им в отряд, и в партии появлялся пустой
+-- друид, которого никто не создавал.
+CREATE TABLE IF NOT EXISTS watchers (
+    owner_id   TEXT PRIMARY KEY,
+    party_code TEXT NOT NULL,
+    acting_as  TEXT
+);
 """
 
 #: Версия схемы, которую понимает этот код. Поднимается при каждой её смене.
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 #: Артиллерист какое-то время был отдельным классом. Персонажи, созданные
 #: тогда, переезжают на класс с подклассом.
@@ -69,9 +79,10 @@ _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
 
 
-#: Колонки, которыми описывается участник отряда. Один список на все выборки,
-#: чтобы порядок полей не разъезжался между запросами.
-_MEMBER_COLUMNS = "class_key, level, name, subclass_key"
+#: Колонки, которыми описывается участник отряда. Один список на все выборки:
+#: порядок полей здесь и в _row_to_member обязан совпадать, а раздельные
+#: перечисления в каждом запросе однажды уже разъехались.
+_MEMBER_COLUMNS = "class_key, level, name, subclass_key, stats, spells"
 
 
 def _decode_stats(raw: str | None) -> Stats:
@@ -128,6 +139,14 @@ def _merge_stats(current: Stats, patch: Stats) -> Stats:
             else current.damage_per_round
         ),
     )
+
+
+@dataclass(frozen=True)
+class Watch:
+    """За какой партией смотрит интерфейс без аккаунтов и за кого играет."""
+
+    party_code: str
+    acting_as: str | None
 
 
 def _decode_spells(raw: str | None) -> frozenset[str]:
@@ -563,13 +582,13 @@ class Storage:
 
         if character.party_code:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
+                "SELECT " + _MEMBER_COLUMNS + " FROM characters "
                 "WHERE party_code = ? ORDER BY telegram_id IS NULL, name",
                 (character.party_code,),
             )
         else:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
+                "SELECT " + _MEMBER_COLUMNS + " FROM characters "
                 "WHERE owner_id = ? ORDER BY telegram_id IS NULL, name",
                 (user_id,),
             )
@@ -592,12 +611,126 @@ class Storage:
             else ("owner_id = ?", user_id)
         )
         rows = self._db.execute(
-            f"SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
+            f"SELECT " + _MEMBER_COLUMNS + " FROM characters "
             f"WHERE {where[0]} AND (telegram_id IS NULL OR telegram_id != ?) "
             f"ORDER BY telegram_id IS NULL, name",
             (where[1], user_id),
         )
         return [_row_to_member(row) for row in rows]
+
+    # ── Наблюдение за партией ─────────────────────────────────────────────────
+    #
+    # Интерфейс без аккаунтов не игрок: он смотрит на партию по коду и
+    # выступает за одного из тех, кто в ней уже есть. Своего персонажа в чужой
+    # отряд он не добавляет — иначе там появляется пустая заглушка, которую
+    # никто не создавал, а расчёты считают её в составе.
+
+    def watch_party(self, owner_id: str, code: str, *, acting_as: str | None) -> bool:
+        """Запомнить, за какой партией смотрим и за кого играем."""
+        code = code.strip().upper()
+        if self._db.execute(
+            "SELECT 1 FROM parties WHERE code = ?", (code,)
+        ).fetchone() is None:
+            return False
+
+        self._db.execute(
+            "INSERT INTO watchers (owner_id, party_code, acting_as) VALUES (?, ?, ?) "
+            "ON CONFLICT(owner_id) DO UPDATE SET party_code = excluded.party_code, "
+            "acting_as = excluded.acting_as",
+            (owner_id, code, acting_as),
+        )
+        self._db.commit()
+        return True
+
+    def get_watch(self, owner_id: str) -> Watch | None:
+        row = self._db.execute(
+            "SELECT party_code, acting_as FROM watchers WHERE owner_id = ?", (owner_id,)
+        ).fetchone()
+        return Watch(party_code=row[0], acting_as=row[1]) if row else None
+
+    def stop_watching(self, owner_id: str) -> None:
+        self._db.execute("DELETE FROM watchers WHERE owner_id = ?", (owner_id,))
+        self._db.commit()
+
+    def party_by_code(self, code: str) -> list[PartyMember]:
+        """Весь отряд по коду партии."""
+        rows = self._db.execute(
+            f"SELECT {_MEMBER_COLUMNS} FROM characters "
+            f"WHERE party_code = ? ORDER BY telegram_id IS NULL, name",
+            (code.strip().upper(),),
+        )
+        return [_row_to_member(row) for row in rows]
+
+    def update_stats_in_party(self, code: str, name: str, patch: Stats) -> bool:
+        return self._write_in_party(
+            code, name, "stats", lambda raw: _encode_stats(
+                _merge_stats(_decode_stats(raw), patch)
+            )
+        )
+
+    def replace_stats_in_party(self, code: str, name: str, stats: Stats) -> bool:
+        return self._write_in_party(
+            code, name, "stats", lambda _: _encode_stats(stats)
+        )
+
+    def update_spells_in_party(
+        self, code: str, name: str, *, add: set[str] = frozenset(),
+        remove: set[str] = frozenset(),
+    ) -> bool:
+        return self._write_in_party(
+            code, name, "spells",
+            lambda raw: json.dumps(sorted((set(_decode_spells(raw)) | set(add)) - set(remove))),
+        )
+
+    def set_spells_in_party(self, code: str, name: str, keys: set[str]) -> bool:
+        return self._write_in_party(
+            code, name, "spells", lambda _: json.dumps(sorted(keys))
+        )
+
+    def set_character_in_party(
+        self, code: str, name: str, *, class_key: str, level: int,
+        subclass_key: str | None,
+    ) -> bool:
+        """Поправить класс, уровень и подкласс участника наблюдаемой партии."""
+        found = self._find_in_party(code, name, "id")
+        if found is None:
+            return False
+        self._db.execute(
+            "UPDATE characters SET class_key = ?, level = ?, subclass_key = ? "
+            "WHERE id = ?",
+            (class_key, level, subclass_key, found[0]),
+        )
+        self._db.commit()
+        return True
+
+    def _find_in_party(
+        self, code: str, name: str, column: str
+    ) -> tuple[int, str | None] | None:
+        """
+        Найти участника партии по имени.
+
+        Двух одинаковых имён достаточно, чтобы отказаться: записать наугад
+        значит испортить лист не тому персонажу.
+        """
+        rows = self._db.execute(
+            f"SELECT id, {column}, name FROM characters WHERE party_code = ?",
+            (code.strip().upper(),),
+        ).fetchall()
+        wanted = name.strip().casefold()
+        matched = [(item[0], item[1]) for item in rows if item[2].casefold() == wanted]
+        return matched[0] if len(matched) == 1 else None
+
+    def _write_in_party(self, code: str, name: str, column: str, change) -> bool:
+        found = self._find_in_party(code, name, column)
+        if found is None:
+            return False
+
+        row_id, raw = found
+        self._db.execute(
+            f"UPDATE characters SET {column} = ? WHERE id = ?", (change(raw), row_id)
+        )
+        self._db.commit()
+        return True
 
     def close(self) -> None:
         self._db.close()

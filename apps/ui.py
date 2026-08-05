@@ -137,14 +137,29 @@ def _entered(value: int) -> int | None:
     return value if value != _NOT_ENTERED else None
 
 
-def _edit_stats(owner: str, member_name: str | None, current: Stats) -> None:
+def _save_stats(stats: Stats) -> None:
+    """Записать числа туда, куда сейчас смотрит сайт: в партию или к себе."""
+    if watch and acting:
+        storage.replace_stats_in_party(watch.party_code, acting.name, stats)
+    else:
+        storage.replace_stats(LOCAL_OWNER, None, stats)
+
+
+def _save_spells(keys: set[str]) -> None:
+    if watch and acting:
+        storage.set_spells_in_party(watch.party_code, acting.name, keys)
+    else:
+        storage.set_spells(LOCAL_OWNER, None, keys)
+
+
+def _edit_stats(current: Stats) -> None:
     """
     Форма ввода чисел. Сохраняет сразу, как и остальные поля на этой странице.
 
     Пустым считается ноль: в 5e не бывает ни AC 0, ни урона 0, а различать
     «не введено» и «введён ноль» отдельным флажком значит удвоить число полей.
     """
-    suffix = member_name or "own"
+    suffix = "current"
     columns = st.columns(3)
     abilities: dict[str, int] = {}
     for index, code in enumerate(ABILITIES):
@@ -175,11 +190,11 @@ def _edit_stats(owner: str, member_name: str | None, current: Stats) -> None:
     if filled != current:
         # Полная замена, а не дополнение: форма показывает лист целиком,
         # поэтому очищенное поле должно очищаться, а не оставаться прежним.
-        storage.replace_stats(owner, member_name, filled)
+        _save_stats(filled)
         st.rerun()
 
 
-def _edit_spells(owner: str, member_name: str | None, current: frozenset[str]) -> None:
+def _edit_spells(current: frozenset[str]) -> None:
     """
     Выбор заклинаний из каталога.
 
@@ -196,11 +211,11 @@ def _edit_spells(owner: str, member_name: str | None, current: frozenset[str]) -
             f"{by_key[key].name} "
             f"({'заговор' if by_key[key].is_cantrip else f'{by_key[key].level} круг'})"
         ),
-        key=f"spells_{member_name or 'own'}",
+        key="spells_current",
     )
 
     if set(chosen) != set(current):
-        storage.set_spells(owner, member_name, set(chosen))
+        _save_spells(set(chosen))
         st.rerun()
 
 
@@ -224,10 +239,36 @@ def _pick_subclass(class_key: str, current: str | None, widget_key: str) -> str 
         key=f"subclass_{widget_key}",
     )
 
-own = storage.get_character(LOCAL_OWNER)
+#: Сайт может работать двумя способами. Сам по себе он ведёт свой персонаж.
+#: Введён код партии — он становится окном в чужой отряд и выступает за одного
+#: из тех, кто в нём уже есть, не добавляя туда никого от себя.
+watch = storage.get_watch(LOCAL_OWNER)
+party_roster = storage.party_by_code(watch.party_code) if watch else []
+acting = (
+    next((m for m in party_roster if m.name == watch.acting_as), None) if watch else None
+)
+own = acting or storage.get_character(LOCAL_OWNER)
 
 with st.sidebar:
-    st.header("Ваш персонаж")
+    if watch:
+        st.header("Вы играете за")
+        names = [m.name for m in party_roster]
+        if not names:
+            st.warning("В этой партии никого нет.")
+            st.stop()
+
+        chosen_name = st.selectbox(
+            "Персонаж", names,
+            index=names.index(watch.acting_as) if watch.acting_as in names else 0,
+        )
+        if chosen_name != watch.acting_as:
+            storage.watch_party(LOCAL_OWNER, watch.party_code, acting_as=chosen_name)
+            st.rerun()
+        acting = next(m for m in party_roster if m.name == chosen_name)
+        own = acting
+    else:
+        st.header("Ваш персонаж")
+
     class_key = st.selectbox(
         "Класс", ALL_CLASSES,
         index=ALL_CLASSES.index(own.class_key if own else "srd_druid"),
@@ -238,9 +279,16 @@ with st.sidebar:
 
     # Персонаж сохраняется сразу: отдельная кнопка «сохранить» только
     # добавляет способ забыть её нажать.
-    if own is None or (own.class_key, own.level, own.subclass_key) != (
+    changed = own is None or (own.class_key, own.level, own.subclass_key) != (
         class_key, level, subclass_key
-    ):
+    )
+    if changed and watch and acting:
+        storage.set_character_in_party(
+            watch.party_code, acting.name,
+            class_key=class_key, level=level, subclass_key=subclass_key,
+        )
+        st.rerun()
+    elif changed and not watch:
         storage.save_character(
             LOCAL_OWNER, class_key=class_key, level=level, subclass_key=subclass_key
         )
@@ -255,7 +303,7 @@ with st.sidebar:
             "расчёт врёт — например у артиллериста с пушкой. В боте туда можно "
             "написать кости как в листе: `/stats урон 2x1d8+4`."
         )
-        _edit_stats(LOCAL_OWNER, None, own.stats if own else Stats())
+        _edit_stats(own.stats if own else Stats())
 
     with st.expander("Заклинания персонажа"):
         st.caption(
@@ -263,10 +311,20 @@ with st.sidebar:
             "для барда и чародея это завышает. Отметьте то, что персонаж "
             "действительно может применить."
         )
-        _edit_spells(LOCAL_OWNER, None, own.spell_keys if own else frozenset())
+        _edit_spells(own.spell_keys if own else frozenset())
 
     st.header("Отряд")
-    allies = storage.party_members(LOCAL_OWNER)
+    if watch:
+        st.caption(f"Партия {watch.party_code} из бота — правится там же.")
+        for member in party_roster:
+            mark = " ← вы" if acting and member.name == acting.name else ""
+            st.write(
+                f"{member.name} — {display_name(member.class_key)} {member.level}{mark}"
+            )
+        allies = []
+    else:
+        allies = storage.party_members(LOCAL_OWNER)
+
     if allies:
         # Ключ по порядковому номеру, а не по имени: двух друидов в отряде
         # ничто не запрещает, а Streamlit падает на одинаковых ключах.
@@ -276,7 +334,7 @@ with st.sidebar:
             if columns[1].button("✕", key=f"drop_{position}", help="Убрать"):
                 storage.remove_member(LOCAL_OWNER, ally.name)
                 st.rerun()
-    else:
+    elif not watch:
         st.caption("Пока никого. Добавьте тех, кто ботом не пользуется.")
 
     with st.form("add_member", clear_on_submit=True):
@@ -297,20 +355,20 @@ with st.sidebar:
             )
             st.rerun()
 
-    st.header("Общая партия с ботом")
+    st.header("Отряд из бота")
     st.caption(
-        "Введите код из бота, чтобы сайт считал тот же отряд. "
-        f"Сейчас: {own.party_code or 'отдельно'}"
+        "Введите код партии — сайт покажет тот же отряд. Своего персонажа он "
+        "туда не добавляет: вы выбираете, за кого из уже существующих играете."
     )
-    code = st.text_input("Код партии", value="", max_chars=8)
-    join, leave = st.columns(2)
-    if join.button("Войти") and code.strip():
-        if storage.join_party(LOCAL_OWNER, code):
+    code = st.text_input("Код партии", value=watch.party_code if watch else "", max_chars=8)
+    watch_it, forget = st.columns(2)
+    if watch_it.button("Смотреть") and code.strip():
+        if storage.watch_party(LOCAL_OWNER, code, acting_as=None):
             st.rerun()
         else:
             st.warning("Такого кода нет.")
-    if leave.button("Выйти"):
-        storage.leave_party(LOCAL_OWNER)
+    if forget.button("Забыть"):
+        storage.stop_watching(LOCAL_OWNER)
         st.rerun()
 
     with st.expander("Перенос отряда"):
@@ -352,15 +410,21 @@ with st.sidebar:
     else:
         st.caption(f"Запросов к модели сегодня: {cache.spent_today()}")
 
+if watch and acting:
+    full_party = party_roster
+    allies_for_advice = [m for m in party_roster if m.name != acting.name]
+else:
+    full_party = storage.full_party(LOCAL_OWNER)
+    allies_for_advice = storage.party_members(LOCAL_OWNER)
+
 request = AdviceRequest(
     class_key=class_key,
     level=level,
     subclass_key=subclass_key,
-    party=tuple(storage.party_members(LOCAL_OWNER)),
+    party=tuple(allies_for_advice),
     top_n=top_n,
     allow_swarms=allow_swarms,
 )
-full_party = storage.full_party(LOCAL_OWNER)
 
 sheet = build_party_sheet(
     full_party, classes=class_data, spells=catalogs["spells"]
