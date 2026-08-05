@@ -398,7 +398,18 @@ def format_sheet(sheet: PartySheet) -> str:
 
     lines.append(f"<b>Типов урона:</b> {len(sheet.damage_types)} из 13")
 
-    warnings = [f"⚠️ {html.escape(gap.text)}" for gap in sheet.gaps]
+    warnings = []
+    for gap in sheet.gaps:
+        line = f"⚠️ {html.escape(gap.text)}"
+        if gap.covered_by_classes:
+            # Дыру закрывает класс, а не заклинание: без этой строчки её
+            # пытаются лечить изучением заклинаний, которые не помогут.
+            line += (
+                "\n<i>Закрывается классом с этим владением: "
+                + html.escape(", ".join(gap.covered_by_classes))
+                + ". Заклинаниями — нет.</i>"
+            )
+        warnings.append(line)
     if sheet.missing_roles:
         missing = ", ".join(ROLE_NAMES.get(role, role) for role in sheet.missing_roles)
         warnings.append(f"⚠️ Никто не закрывает: {html.escape(missing)}.")

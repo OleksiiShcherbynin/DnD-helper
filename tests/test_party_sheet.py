@@ -76,6 +76,31 @@ def test_gap_explains_what_it_costs(classes):
     assert "Hold Person" in wis.text
 
 
+def test_a_gap_names_the_classes_that_close_it(classes):
+    """
+    Дыру в спасбросках закрывает класс, а не заклинание. Без этого игрок
+    ищет решение там, где его нет — и учит заклинание, которое не поможет.
+    """
+    sheet = _sheet(classes, "srd_barbarian")
+    dex = next(gap for gap in sheet.gaps if gap.ability == "dex")
+
+    assert "Rogue" in dex.covered_by_classes
+    assert "Ranger" in dex.covered_by_classes
+    assert "Barbarian" not in dex.covered_by_classes
+
+
+def test_the_threat_text_does_not_name_a_spell_you_can_own(classes):
+    """
+    В подсказке про Ловкость стояло «драконье дыхание» — дыхание монстра.
+    Читалось как заклинание Dragon's Breath, и игрок решил, что выучив его
+    закроет дыру. Название, совпадающее с заклинанием, тут неуместно.
+    """
+    sheet = _sheet(classes, "srd_barbarian")
+    dex = next(gap for gap in sheet.gaps if gap.ability == "dex")
+
+    assert "дыхание" not in dex.text.lower()
+
+
 def test_hit_dice_are_collected_for_durability(classes):
     sheet = _sheet(classes, "srd_barbarian", "srd_wizard")
     assert sheet.hit_dice == {"Barbarian": 12, "Wizard": 6}

@@ -244,6 +244,27 @@ def test_two_members_with_the_same_name_do_not_break_the_page(database_path):
     assert not app.exception, [str(e) for e in app.exception]
 
 
+def test_an_old_placeholder_is_removed_from_the_party(database_path):
+    """
+    Пока сайт вступал в партию своим персонажем, он оставлял там пустого
+    друида. Смена поведения тех записей не убрала — их надо вычищать, иначе
+    отряд так и считается на одного больше.
+    """
+    from adapters.sqlite_storage import Storage
+
+    storage = Storage(database_path)
+    storage.save_character("вася", class_key="srd_druid", level=4)
+    code = storage.create_party("вася")
+
+    storage.save_character("local", class_key="srd_druid", level=6)
+    storage.join_party("local", code)
+    assert len(storage.party_by_code(code)) == 2
+
+    _app()
+
+    assert len(storage.party_by_code(code)) == 1, "заглушка осталась в отряде"
+
+
 def test_watching_a_party_shows_it_without_joining_it(database_path):
     """
     Сайт — окно в отряд, а не ещё один игрок. Раньше ввод кода добавлял туда

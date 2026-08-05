@@ -22,13 +22,17 @@ from core.models import ABILITIES, ABILITY_NAMES, ClassData, PartyMember, Spell
 #: Порядок внутри словаря задаёт порядок вывода дыр: Мудрость и Ловкость
 #: случаются постоянно, Интеллект и Харизма почти никогда, и показывать их
 #: с одинаковой тревожностью значит обесценить обе.
+#: Названия заклинаний тут появляться не должны, если игрок может их выучить:
+#: в подсказке про Ловкость стояло «драконье дыхание» — имелось в виду дыхание
+#: монстра, — и это прочли как заклинание Dragon's Breath, которое якобы
+#: закроет дыру. Дыру в спасбросках закрывает класс, а не заклинание.
 _SAVE_THREATS: dict[str, str] = {
-    "wis": "Hold Person, Fear, Dominate Person — самые частые и самые болезненные эффекты",
-    "dex": "Fireball, Lightning Bolt, драконье дыхание — урон по площади",
-    "con": "удержание концентрации, яды, Thunderwave",
-    "str": "захваты, Web, принудительное перемещение",
-    "int": "Feeblemind и псионика — встречается редко",
-    "cha": "Banishment и планарные эффекты — встречается редко",
+    "wis": "чары и подчинение вроде Hold Person — самые частые и болезненные эффекты",
+    "dex": "урон по площади: огненные шары, молнии, взрывы",
+    "con": "удержание концентрации и яды",
+    "str": "захваты, путы и принудительное перемещение",
+    "int": "атаки на разум — встречается редко",
+    "cha": "изгнание и планарные эффекты — встречается редко",
 }
 
 
@@ -48,6 +52,9 @@ class SaveGap:
 
     ability: str
     text: str
+    #: Классы, у которых это владение есть. Дыру закрывает класс, а не
+    #: заклинание, и без этого игрок ищет решение там, где его нет.
+    covered_by_classes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -182,6 +189,13 @@ def build_party_sheet(
         SaveGap(
             ability=ability,
             text=f"Спасброски {ABILITY_NAMES[ability]} не тянет никто: {threat}.",
+            covered_by_classes=tuple(
+                sorted(
+                    data.name
+                    for data in classes.values()
+                    if ability in data.saving_throws
+                )
+            ),
         )
         for ability, threat in _SAVE_THREATS.items()
         if not saves[ability]

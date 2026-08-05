@@ -243,6 +243,14 @@ def _pick_subclass(class_key: str, current: str | None, widget_key: str) -> str 
 #: Введён код партии — он становится окном в чужой отряд и выступает за одного
 #: из тех, кто в нём уже есть, не добавляя туда никого от себя.
 watch = storage.get_watch(LOCAL_OWNER)
+
+# Раньше сайт вступал в партию своим персонажем, и в чужом отряде оставался
+# пустой друид, которого никто не создавал. Смена поведения сама по себе те
+# записи не убрала — вычищаем их при каждом запуске.
+_own_record = storage.get_character(LOCAL_OWNER)
+if _own_record is not None and _own_record.party_code:
+    storage.leave_party(LOCAL_OWNER)
+
 party_roster = storage.party_by_code(watch.party_code) if watch else []
 acting = (
     next((m for m in party_roster if m.name == watch.acting_as), None) if watch else None
@@ -457,7 +465,16 @@ with st.expander("📋 Лист партии — что отряд умеет и
     st.write(f"**Типов урона:** {len(sheet.damage_types)} из 13")
 
     for gap in sheet.gaps:
-        st.warning(gap.text)
+        note = ""
+        if gap.covered_by_classes:
+            # Дыру закрывает класс, а не заклинание: без этой строчки её
+            # пытаются лечить изучением заклинаний, которые не помогут.
+            note = (
+                "\n\nЗакрывается классом с этим владением: "
+                + ", ".join(gap.covered_by_classes)
+                + ". Заклинаниями — нет."
+            )
+        st.warning(gap.text + note)
     if sheet.missing_roles:
         missing = ", ".join(ROLE_NAMES.get(role, role) for role in sheet.missing_roles)
         st.warning(f"Никто не закрывает: {missing}.")
