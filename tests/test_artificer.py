@@ -17,23 +17,17 @@ from adapters.open5e_catalog import DEFAULT_SPELLS_PATH, load_spells
 from core.advisors.spells import rank_spells
 from core.class_profiles import (
     ARTIFICER,
-    ARTILLERIST,
     max_spell_level,
     parse_class,
     prepared_or_known_count,
     profile,
+    spell_keys_for,
 )
 
 
-@pytest.mark.parametrize("text, expected", [
-    ("изобретатель", ARTIFICER),
-    ("артифайсер", ARTIFICER),
-    ("artificer", ARTIFICER),
-    ("артиллерист", ARTILLERIST),
-    ("artillerist", ARTILLERIST),
-])
-def test_class_names_are_understood(text, expected):
-    assert parse_class(text) == expected
+@pytest.mark.parametrize("text", ["изобретатель", "артифайсер", "artificer"])
+def test_class_names_are_understood(text):
+    assert parse_class(text) == ARTIFICER
 
 
 def test_artificer_casts_from_the_first_level():
@@ -86,12 +80,8 @@ def test_renamed_spells_are_in_the_list_under_srd_names():
 
 def test_artillerist_gets_its_own_spells_on_top():
     """Огненный шар доступен артиллеристу и недоступен обычному изобретателю."""
-    assert "srd_fireball" in profile(ARTILLERIST).spell_keys
-    assert "srd_fireball" not in profile(ARTIFICER).spell_keys
-
-
-def test_artillerist_keeps_the_whole_base_list():
-    assert profile(ARTIFICER).spell_keys <= profile(ARTILLERIST).spell_keys
+    assert "srd_fireball" in spell_keys_for(ARTIFICER, "artillerist")
+    assert "srd_fireball" not in spell_keys_for(ARTIFICER, None)
 
 
 # ── Проверки на полном каталоге ───────────────────────────────────────────────
@@ -103,14 +93,14 @@ full_catalog = pytest.mark.skipif(
 
 
 @full_catalog
-@pytest.mark.parametrize("class_key", [ARTIFICER, ARTILLERIST])
-def test_every_listed_spell_exists_in_the_catalog(class_key):
+@pytest.mark.parametrize("subclass_key", [None, "artillerist"])
+def test_every_listed_spell_exists_in_the_catalog(subclass_key):
     """
     Список набран ключами вручную, и опечатка в слаге ничего не сломает
     заметно: заклинание просто тихо исчезнет из выдачи. Поэтому сверяемся.
     """
     known = {spell.key for spell in load_spells()}
-    missing = sorted(profile(class_key).spell_keys - known)
+    missing = sorted(spell_keys_for(ARTIFICER, subclass_key) - known)
     assert missing == [], f"таких ключей нет в каталоге: {missing}"
 
 
@@ -142,7 +132,10 @@ def test_the_artillerist_advisor_offers_the_subclass_spells():
     catalog = load_spells()
     offered = {
         item.spell.name
-        for item in rank_spells(catalog, class_key=ARTILLERIST, character_level=9, party=[])
+        for item in rank_spells(
+            catalog, class_key=ARTIFICER, subclass_key="artillerist",
+            character_level=9, party=[],
+        )
     }
     assert "Fireball" in offered
     assert "Cure Wounds" in offered

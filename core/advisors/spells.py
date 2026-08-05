@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from collections import Counter
 from dataclasses import dataclass
 
-from core.class_profiles import max_spell_level, profile, roles_of
+from core.class_profiles import max_spell_level, profile, roles_of, spell_keys_for
 from core.models import ROLE_NAMES as _ROLE_NAMES
 from core.models import PartyMember, Spell
 
@@ -103,6 +103,7 @@ def rank_spells(
     *,
     class_key: str,
     character_level: int,
+    subclass_key: str | None = None,
     party: Iterable[PartyMember] = (),
     include_cantrips: bool = True,
 ) -> list[ScoredSpell]:
@@ -112,15 +113,17 @@ def rank_spells(
     Пустой список означает, что заклинаний ещё нет: у полукастера до 2 уровня
     их действительно нет, и это не ошибка.
     """
-    current = profile(class_key)  # неизвестный класс — ошибка, а не пустая выдача
+    profile(class_key)  # неизвестный класс — ошибка, а не пустая выдача
     circle_cap = max_spell_level(class_key, character_level)
     if circle_cap == 0:
         return []
 
     # У классов вне SRD каталог не проставляет принадлежность списку, поэтому
-    # для них список задан явно ключами. Иначе отбор дал бы пустоту.
-    if current.spell_keys is not None:
-        belongs = lambda spell: spell.key in current.spell_keys  # noqa: E731
+    # для них список задан явно ключами — вместе с добавками подкласса.
+    # Иначе отбор дал бы пустоту.
+    explicit = spell_keys_for(class_key, subclass_key)
+    if explicit is not None:
+        belongs = lambda spell: spell.key in explicit  # noqa: E731
     else:
         belongs = lambda spell: class_key in spell.classes  # noqa: E731
 

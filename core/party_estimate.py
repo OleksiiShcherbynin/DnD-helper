@@ -19,7 +19,7 @@
 
 from dataclasses import dataclass
 
-from core.class_profiles import ARTIFICER, ARTILLERIST, display_name
+from core.class_profiles import ARTIFICER, display_name
 from core.models import ClassData, PartyMember
 
 #: Модификатор основной характеристики. Обычный путь: начать с +3 и поднимать
@@ -63,7 +63,6 @@ _ARCHETYPES: dict[str, Archetype] = {
     "srd_sorcerer": Archetype(ac=13, style="caster"),
     # Изобретатель носит средние доспехи и щит, отсюда AC выше, чем у кастеров.
     ARTIFICER: Archetype(ac=17, style="caster"),
-    ARTILLERIST: Archetype(ac=17, style="caster"),
 }
 
 #: Неизвестный класс: усреднённый боец. Хоумбрю не должен ронять калькулятор —

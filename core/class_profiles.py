@@ -17,6 +17,8 @@ Divine Favor помечен жреческим, а Branding Smite не имее�
 from dataclasses import dataclass, field
 from typing import Literal
 
+from core.spell_lists import ARTIFICER_SPELLS, ARTILLERIST_EXTRA
+
 CasterKind = Literal["full", "half", "pact"]
 Preparation = Literal["prepared", "known", "spellbook"]
 
@@ -56,59 +58,10 @@ class ClassProfile:
     homebrew: bool = False
 
 
-# ── Изобретатель: класс вне SRD ───────────────────────────────────────────────
-#
-# Он из Tasha's Cauldron of Everything, поэтому каталог о нём не знает ничего —
-# ни кости хитов, ни спасбросков, и ни одно заклинание не помечено как его.
-# Список задаётся ключами, а отбор по классу для него не работает.
-#
-# Из 66 заклинаний Изобретателя в SRD есть 57. Отсутствуют пришедшие вместе с
-# классом из Tasha's: Snare, Tasha's Caustic Brew, Catnap, Elemental Weapon,
-# Flame Arrows, Intellect Fortress, Summon Construct, Skill Empowerment,
-# Transmute Rock. Их в открытом документе нет, и придумывать их нельзя.
-#
-# Именные заклинания в SRD переименованы, и в списке они под новыми именами:
-# Bigby's Hand -> Arcane Hand, Mordenkainen's Faithful Hound -> Faithful Hound,
-# Leomund's Secret Chest -> Secret Chest, и так далее.
-
+#: Изобретатель — класс вне SRD (Tasha's). Каталог о нём не знает ничего, ни
+#: кости хитов, ни спасбросков, поэтому механика описана здесь, а список
+#: заклинаний задан явно в core/spell_lists.py.
 ARTIFICER = "hb_artificer"
-ARTILLERIST = "hb_artificer_artillerist"
-
-_ARTIFICER_SPELLS = frozenset({
-    # 1 круг
-    "srd_alarm", "srd_cure-wounds", "srd_detect-magic", "srd_disguise-self",
-    "srd_expeditious-retreat", "srd_faerie-fire", "srd_false-life",
-    "srd_feather-fall", "srd_grease", "srd_identify", "srd_jump",
-    "srd_longstrider", "srd_purify-food-and-drink", "srd_sanctuary",
-    # 2 круг
-    "srd_aid", "srd_alter-self", "srd_arcane-lock", "srd_blur",
-    "srd_continual-flame", "srd_darkvision", "srd_enhance-ability",
-    # Ключ без дефиса: слэш в "Enlarge/Reduce" в слаге просто выброшен.
-    "srd_enlargereduce", "srd_heat-metal", "srd_invisibility",
-    "srd_lesser-restoration", "srd_levitate", "srd_magic-mouth",
-    "srd_magic-weapon", "srd_protection-from-poison", "srd_rope-trick",
-    "srd_see-invisibility", "srd_spider-climb", "srd_web",
-    # 3 круг
-    "srd_blink", "srd_create-food-and-water", "srd_dispel-magic", "srd_fly",
-    "srd_glyph-of-warding", "srd_haste", "srd_protection-from-energy",
-    "srd_revivify", "srd_water-breathing", "srd_water-walk",
-    # 4 круг
-    "srd_arcane-eye", "srd_fabricate", "srd_freedom-of-movement",
-    "srd_stone-shape", "srd_stoneskin", "srd_secret-chest",
-    "srd_faithful-hound", "srd_private-sanctum", "srd_resilient-sphere",
-    # 5 круг
-    "srd_animate-objects", "srd_creation", "srd_greater-restoration",
-    "srd_wall-of-stone", "srd_arcane-hand",
-})
-
-#: Артиллерист получает эти заклинания сверх общего списка, и они всегда
-#: подготовлены. Подклассы отдельной сущностью не заводились: строка в таблице
-#: со своим списком делает то же самое и ничего не усложняет.
-_ARTILLERIST_SPELLS = _ARTIFICER_SPELLS | {
-    "srd_shield", "srd_thunderwave", "srd_scorching-ray", "srd_shatter",
-    "srd_fireball", "srd_wind-wall", "srd_ice-storm", "srd_wall-of-fire",
-    "srd_cone-of-cold", "srd_wall-of-force",
-}
 
 
 CASTERS: dict[str, ClassProfile] = {
@@ -156,17 +109,9 @@ CASTERS: dict[str, ClassProfile] = {
             key=ARTIFICER, name="Изобретатель", caster="half", preparation="prepared",
             ability="int", rituals=True, homebrew=True,
             party_roles=frozenset({"utility", "defense", "damage"}),
-            spell_keys=_ARTIFICER_SPELLS,
+            spell_keys=ARTIFICER_SPELLS,
             prepared_level_divisor=2,
             notes="Вне SRD (Tasha's). Готовит Интеллект + половину уровня.",
-        ),
-        ClassProfile(
-            key=ARTILLERIST, name="Изобретатель (артиллерист)", caster="half",
-            preparation="prepared", ability="int", rituals=True, homebrew=True,
-            party_roles=frozenset({"damage", "utility", "defense"}),
-            spell_keys=_ARTILLERIST_SPELLS,
-            prepared_level_divisor=2,
-            notes="Вне SRD (Tasha's). Заклинания подкласса всегда подготовлены.",
         ),
     )
 }
@@ -175,8 +120,87 @@ CASTERS: dict[str, ClassProfile] = {
 #: а листу партии они нужны. У Изобретателя d8, Телосложение и Интеллект.
 EXTRA_CLASS_DATA: dict[str, tuple[int, frozenset[str]]] = {
     ARTIFICER: (8, frozenset({"con", "int"})),
-    ARTILLERIST: (8, frozenset({"con", "int"})),
 }
+
+
+# ── Подклассы ─────────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class Subclass:
+    """
+    Подкласс всегда принадлежит классу и сам по себе не существует.
+
+    Раньше Артиллерист был заведён отдельным классом — так было дешевле, но
+    игроку приходилось вводить подкласс вместо класса, и это враньё в модели.
+    """
+
+    key: str
+    name: str
+    parent: str
+    #: Заклинания сверх списка класса.
+    extra_spell_keys: frozenset[str] = frozenset()
+    notes: str = ""
+
+
+SUBCLASSES: dict[str, Subclass] = {
+    subclass.key: subclass
+    for subclass in (
+        Subclass(
+            key="artillerist", name="Артиллерист", parent=ARTIFICER,
+            extra_spell_keys=ARTILLERIST_EXTRA,
+            notes="Заклинания подкласса всегда подготовлены.",
+        ),
+        Subclass(
+            key="moon", name="Круг Луны", parent="srd_druid",
+            notes="Превращается в куда более крупных зверей: CR 1 со 2 уровня, "
+                  "дальше уровень делённый на три.",
+        ),
+    )
+}
+
+_SUBCLASS_ALIASES: dict[str, str] = {
+    "артиллерист": "artillerist", "artillerist": "artillerist",
+    "круг луны": "moon", "луны": "moon", "луна": "moon", "moon": "moon",
+}
+
+
+def parse_subclass(text: str) -> str | None:
+    """Ключ подкласса по названию. Незнакомое слово даёт None, а не догадку."""
+    return _SUBCLASS_ALIASES.get((text or "").strip().lower())
+
+
+def subclass_profile(subclass_key: str) -> Subclass:
+    if subclass_key not in SUBCLASSES:
+        raise KeyError(f"Неизвестный подкласс: {subclass_key}")
+    return SUBCLASSES[subclass_key]
+
+
+def spell_keys_for(class_key: str, subclass_key: str | None) -> frozenset[str] | None:
+    """
+    Полный список заклинаний с учётом подкласса.
+
+    None означает, что список берётся из каталога по разметке класса — так
+    устроены все классы SRD.
+
+    Подкласс чужого класса — опечатка, а не сборка: принять её молча значит
+    выдать персонажу чужой список заклинаний.
+    """
+    base = profile(class_key).spell_keys
+
+    if subclass_key is None:
+        return base
+
+    subclass = subclass_profile(subclass_key)
+    if subclass.parent != class_key:
+        raise ValueError(
+            f"{subclass.name} — подкласс класса "
+            f"{display_name(subclass.parent)}, а не {display_name(class_key)}."
+        )
+
+    if not subclass.extra_spell_keys:
+        return base
+    return (base or frozenset()) | subclass.extra_spell_keys
 
 #: Что приносят партии классы без заклинаний. Нужно, чтобы понимать состав,
 #: а не чтобы советовать им — заклинаний у них нет.
@@ -223,7 +247,6 @@ _CLASS_ALIASES: dict[str, str] = {
     "паладин": "srd_paladin", "paladin": "srd_paladin",
     # Вне SRD, но за столом встречается.
     "изобретатель": ARTIFICER, "артифайсер": ARTIFICER, "artificer": ARTIFICER,
-    "артиллерист": ARTILLERIST, "artillerist": ARTILLERIST,
 }
 
 
