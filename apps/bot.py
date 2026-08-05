@@ -341,9 +341,14 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_html(
             "Не разобрал. Примеры:\n"
             "<code>/stats сил 16 лов 14 тел 15</code>\n"
-            "<code>/stats Кузьма урон 22 кд 17</code>\n\n"
-            "Ключи: сил, лов, тел, инт, мдр, хар, кд, хиты, атака, урон.\n"
-            "Вводить можно по частям — то, что не введено, считается само."
+            "<code>/stats кд 17 хиты 39 атака 4</code>\n"
+            "<code>/stats урон 1d8+4</code> — как в листе персонажа\n"
+            "<code>/stats урон 2x1d8+4</code> — если бьёте дважды за раунд\n"
+            "<code>/stats Кузьма урон 24</code> — за участника\n\n"
+            "Ключи: сил, лов, тел, инт, мдр, хар, кд, хиты, атака, урон.\n\n"
+            "<b>Ничего вводить не обязательно.</b> Что не введено — считается "
+            "по классу и уровню. Урон стоит вписывать, только если оценка врёт: "
+            "например у артиллериста с пушкой."
         )
         return
 
@@ -355,7 +360,10 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     whose = html.escape(name) if name else "вашего персонажа"
-    await update.message.reply_html(f"Записал для {whose}: {_describe_stats(patch)}.")
+    await update.message.reply_html(
+        f"Записал для {whose}: {_describe_stats(patch)}.\n\n"
+        f"<i>Что не введено — считается по классу и уровню.</i>"
+    )
 
 
 def _describe_stats(patch: Stats) -> str:

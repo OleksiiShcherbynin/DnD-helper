@@ -157,6 +157,30 @@ _STAT_KEYS: dict[str, str] = {
 }
 
 
+#: Урон, как он написан в листе: "1d8+4", "2d6", "2x1d8+4" — два удара за раунд.
+#: Русская "х" здесь не опечатка: на русской раскладке её и набирают.
+_DAMAGE_DICE = re.compile(
+    r"^(?:(\d+)\s*[x х*]\s*)?(\d+)d(\d+)\s*(?:([+-])\s*(\d+))?$", re.I
+)
+
+
+def _average_damage(text: str) -> float | None:
+    """
+    Средний урон по записи вида "2x1d8+4".
+
+    В листе персонажа написаны кости, а не среднее. Требовать среднее значит
+    требовать того, чего у игрока перед глазами нет.
+    """
+    match = _DAMAGE_DICE.match(text.strip())
+    if match is None:
+        return None
+
+    attacks = int(match.group(1) or 1)
+    count, size = int(match.group(2)), int(match.group(3))
+    bonus = int(match.group(5) or 0) * (-1 if match.group(4) == "-" else 1)
+    return attacks * (count * (size + 1) / 2 + bonus)
+
+
 def parse_stats(text: str) -> tuple[str | None, Stats] | None:
     """
     Разобрать строку вида "Сир Гарет hp 44 урон 22" или "сил 16 лов 14".
@@ -178,20 +202,31 @@ def parse_stats(text: str) -> tuple[str | None, Stats] | None:
 
     abilities: dict[str, int] = {}
     overrides: dict[str, int] = {}
+    damage: float | None = None
     rest = parts[first_key:]
     if len(rest) % 2:
         return None
 
     for key_text, value_text in zip(rest[::2], rest[1::2]):
         key = _STAT_KEYS.get(key_text.lower())
+        if key is None:
+            return None
+
+        # Кости принимаются только в уроне: "сил 1d8" — почти наверняка опечатка.
+        if key == "damage_per_round":
+            damage = _average_damage(value_text)
+            if damage is not None:
+                continue
+
         try:
             value = int(value_text)
         except ValueError:
             return None
-        if key is None:
-            return None
+
         if key in _ABILITY_CODES:
             abilities[key] = value
+        elif key == "damage_per_round":
+            damage = float(value)
         else:
             overrides[key] = value
 
@@ -200,11 +235,7 @@ def parse_stats(text: str) -> tuple[str | None, Stats] | None:
         ac=overrides.get("ac"),
         hp=overrides.get("hp"),
         attack_bonus=overrides.get("attack_bonus"),
-        damage_per_round=(
-            float(overrides["damage_per_round"])
-            if "damage_per_round" in overrides
-            else None
-        ),
+        damage_per_round=damage,
     )
 
 

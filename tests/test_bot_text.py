@@ -153,6 +153,39 @@ def test_keys_are_understood_in_both_languages(text, expected):
     assert parse_stats(text) == (None, expected)
 
 
+@pytest.mark.parametrize("text, expected", [
+    ("урон 1d8+4", 8.5),
+    ("урон 1d8", 4.5),
+    ("урон 2d6+3", 10.0),
+    ("урон 1d10-1", 4.5),
+])
+def test_damage_can_be_entered_as_dice(text, expected):
+    """
+    В листе персонажа написано "1d8+4", а не "8.5". Требовать средний урон
+    значит требовать того, чего у игрока перед глазами нет.
+    """
+    assert parse_stats(text) == (None, Stats(damage_per_round=expected))
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("урон 2x1d8+4", 17.0),
+    ("урон 3х1d6+3", 19.5),
+])
+def test_several_attacks_a_round_are_multiplied(text, expected):
+    """Второй удар на 5 уровне удваивает урон, и записать это надо просто."""
+    assert parse_stats(text) == (None, Stats(damage_per_round=expected))
+
+
+def test_a_plain_number_still_works():
+    assert parse_stats("урон 12") == (None, Stats(damage_per_round=12.0))
+
+
+def test_dice_are_only_accepted_where_they_make_sense():
+    """Кости в силе или в AC — почти наверняка опечатка."""
+    assert parse_stats("сил 1d8") is None
+    assert parse_stats("кд 2d6") is None
+
+
 def test_a_negative_attack_bonus_is_allowed():
     """Бонус атаки бывает отрицательным, и минус нельзя терять."""
     assert parse_stats("атака -1") == (None, Stats(attack_bonus=-1))

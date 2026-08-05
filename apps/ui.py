@@ -191,7 +191,10 @@ def _edit_spells(owner: str, member_name: str | None, current: frozenset[str]) -
         "Что персонаж умеет",
         sorted(by_key, key=lambda key: by_key[key].name),
         default=sorted(current & by_key.keys()),
-        format_func=lambda key: f"{by_key[key].name} ({by_key[key].level} кр.)",
+        format_func=lambda key: (
+            f"{by_key[key].name} "
+            f"({'заговор' if by_key[key].is_cantrip else f'{by_key[key].level} круг'})"
+        ),
         key=f"spells_{member_name or 'own'}",
     )
 
@@ -245,7 +248,11 @@ with st.sidebar:
     with st.expander("Числа персонажа"):
         st.caption(
             "Всё необязательно. Незаполненное считается по классу и уровню, "
-            "а введённое перебивает расчёт."
+            "а введённое перебивает расчёт.\n\n"
+            "**Урон** — это средний урон за раунд, и знать его наизусть не нужно: "
+            "оставьте ноль, и он посчитается сам. Вписывать стоит, только если "
+            "расчёт врёт — например у артиллериста с пушкой. В боте туда можно "
+            "написать кости как в листе: `/stats урон 2x1d8+4`."
         )
         _edit_stats(LOCAL_OWNER, None, own.stats if own else Stats())
 
