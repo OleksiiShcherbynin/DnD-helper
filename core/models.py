@@ -59,7 +59,13 @@ class Creature(BaseModel):
 
     #: Разобранные атаки — нужны, чтобы считать урон против конкретного AC.
     attacks: list[Attack] = Field(default_factory=list)
-    has_multiattack: bool = False
+    #: Сколько атак существо делает за раунд. У зверей это один или два удара,
+    #: у монстров бывает больше: дракон бьёт укусом и двумя когтями.
+    attacks_per_round: int = 1
+
+    @property
+    def has_multiattack(self) -> bool:
+        return self.attacks_per_round > 1
 
     darkvision: int = 0
     blindsight: int = 0

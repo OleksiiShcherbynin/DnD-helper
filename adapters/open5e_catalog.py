@@ -55,6 +55,33 @@ def _is_multiattack(action: dict) -> bool:
     return (action.get("name") or "").lower() == "multiattack"
 
 
+#: "The dragon makes three attacks: one with its bite and two with its claws."
+_ATTACK_COUNT_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+}
+_MULTIATTACK_COUNT = re.compile(
+    r"makes\s+(" + "|".join(_ATTACK_COUNT_WORDS) + r")\s+\w*\s*attacks", re.I
+)
+
+
+def _attacks_per_round(actions: list[dict]) -> int:
+    """
+    Сколько ударов существо наносит за раунд.
+
+    У зверей мультиатака всегда означала два удара, и раньше двойка была
+    зашита. На полном каталоге это ломается: дракон бьёт укусом и двумя
+    когтями, и недосчитанный третий удар делает его заметно безобиднее,
+    чем он есть.
+    """
+    for action in actions or ():
+        if not _is_multiattack(action):
+            continue
+        found = _MULTIATTACK_COUNT.search(action.get("desc") or "")
+        # Мультиатака есть, но число словами не нашлось — по умолчанию два.
+        return _ATTACK_COUNT_WORDS[found.group(1).lower()] if found else 2
+    return 1
+
+
 def _parse_attacks(actions: list[dict]) -> list[Attack]:
     """
     Разобрать атаки статблока.
@@ -131,7 +158,7 @@ def parse_creature(raw: dict) -> Creature:
         environments=[env["key"] for env in raw.get("environments") or ()],
         damage_per_round=_damage_per_round(actions),
         attacks=_parse_attacks(actions),
-        has_multiattack=any(_is_multiattack(action) for action in actions),
+        attacks_per_round=_attacks_per_round(actions),
         darkvision=raw.get("darkvision_range") or 0,
         blindsight=raw.get("blindsight_range") or 0,
         tremorsense=raw.get("tremorsense_range") or 0,

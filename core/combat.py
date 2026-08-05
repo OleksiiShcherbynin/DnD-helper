@@ -108,8 +108,12 @@ def expected_round_damage(beast, *, target_ac: int, advantage: int = 0) -> float
     «сколько выйдет, если все атаки попадут», и форма с внушительными костями
     обгоняла форму, которая по этой цели действительно попадает.
 
-    При мультиатаке берутся две лучшие по ожидаемому урону — все звери SRD
-    с ней бьют ровно дважды.
+    Берётся столько лучших атак, сколько существо делает за раунд. У зверей это
+    один или два удара, у монстров бывает больше: дракон бьёт укусом и двумя
+    когтями. Если разных атак меньше, чем ударов, лучшая повторяется.
+
+    Урон от способностей со спасброском — драконье дыхание и прочее дыхание
+    площадью — сюда не входит: это не атака. Для таких существ оценка занижена.
     """
     if not beast.attacks:
         return 0.0
@@ -132,7 +136,11 @@ def expected_round_damage(beast, *, target_ac: int, advantage: int = 0) -> float
         reverse=True,
     )
 
-    return sum(expected[:2]) if beast.has_multiattack else expected[0]
+    # Ударов может быть больше, чем разных атак: три удара при укусе и когтях
+    # означают, что когтями бьют дважды.
+    strikes = max(1, beast.attacks_per_round)
+    best = [expected[min(index, len(expected) - 1)] for index in range(strikes)]
+    return sum(best)
 
 
 def rounds_to_defeat(hp: int, damage_per_round: float) -> int | None:
