@@ -10,7 +10,7 @@ import sqlite3
 
 import pytest
 
-from adapters.sqlite_storage import Storage
+from adapters.sqlite_storage import Storage, StorageTooNew
 
 #: Схема, с которой бот работал до появления ручных участников. Нужна, чтобы
 #: проверить миграцию на настоящих данных, а не на выдуманных.
@@ -138,6 +138,24 @@ def test_old_database_is_migrated_without_losing_anyone(tmp_path):
     assert storage.get_character("вася").class_key == "srd_druid"
     assert storage.get_character("петя").level == 4
     assert [m.class_key for m in storage.party_members("вася")] == ["srd_cleric"]
+
+
+def test_database_from_a_newer_version_says_to_restart(tmp_path):
+    """
+    Работающий бот держит модули в памяти, и правка файлов его не меняет.
+    После смены схемы старый процесс бьётся о новую базу сырой ошибкой SQL
+    вида «no such column» — по ней не догадаешься, что нужен перезапуск.
+    """
+    path = tmp_path / "copilot.db"
+    Storage(path).save_character("вася", class_key="srd_druid", level=6)
+
+    ahead = sqlite3.connect(path)
+    ahead.execute("UPDATE schema_meta SET version = 99")
+    ahead.commit()
+    ahead.close()
+
+    with pytest.raises(StorageTooNew, match="[Пп]ерезапуст"):
+        Storage(path)
 
 
 def test_migration_runs_only_once(tmp_path):

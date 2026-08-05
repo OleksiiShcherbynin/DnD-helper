@@ -38,7 +38,7 @@ from adapters.open5e_catalog import (
     load_creatures,
     load_spells,
 )
-from adapters.sqlite_storage import Storage
+from adapters.sqlite_storage import Storage, StorageTooNew
 from apps.formatting import (
     format_advice,
     format_character,
@@ -426,7 +426,7 @@ def main() -> None:
 
     try:
         deps = Deps()
-    except CatalogMissing as error:
+    except (CatalogMissing, StorageTooNew) as error:
         raise SystemExit(str(error))
 
     application = Application.builder().token(token).build()

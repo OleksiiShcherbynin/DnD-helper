@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
-from adapters.sqlite_storage import Storage
+from adapters.sqlite_storage import Storage, StorageTooNew
 from adapters.open5e_catalog import (
     BEAST_TYPE,
     CatalogMissing,
@@ -106,14 +106,14 @@ st.title("🐺 Tabletop Copilot")
 try:
     catalogs = get_catalogs()
     class_data = get_classes()
-except CatalogMissing as error:
+    storage = get_storage()
+except (CatalogMissing, StorageTooNew) as error:
     st.error(str(error))
     st.stop()
 
 cache = get_cache()
 explainer = get_explainer()
 
-storage = get_storage()
 ALL_CLASSES = list(CASTERS) + [f"srd_{key}" for key in NON_CASTER_NAMES]
 
 own = storage.get_character(LOCAL_OWNER)

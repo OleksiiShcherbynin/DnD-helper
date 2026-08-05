@@ -39,7 +39,15 @@ CREATE INDEX IF NOT EXISTS characters_by_party ON characters (party_code);
 CREATE INDEX IF NOT EXISTS characters_by_owner ON characters (owner_id);
 CREATE UNIQUE INDEX IF NOT EXISTS characters_by_telegram
     ON characters (telegram_id) WHERE telegram_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
 """
+
+#: Версия схемы, которую понимает этот код. Поднимается при каждой её смене.
+SCHEMA_VERSION = 2
+
+
+class StorageTooNew(RuntimeError):
+    """База новее кода, который её открыл."""
 
 #: Код читают вслух за столом и перенабирают руками, поэтому он короткий и
 #: без символов, которые легко перепутать: без нуля, O, единицы и I.
@@ -58,9 +66,37 @@ class Storage:
         path = Path(db_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         self._db = sqlite3.connect(path, check_same_thread=False)
+        self._refuse_if_newer_than_code()
         self._migrate_if_needed()
         self._db.executescript(_SCHEMA)
+        self._remember_version()
         self._db.commit()
+
+    def _stored_version(self) -> int | None:
+        try:
+            row = self._db.execute("SELECT version FROM schema_meta").fetchone()
+        except sqlite3.OperationalError:
+            return None  # таблицы ещё нет: база старая или пустая
+        return row[0] if row else None
+
+    def _refuse_if_newer_than_code(self) -> None:
+        """
+        Не работать с базой, которую писала более новая версия.
+
+        Работающий бот держит модули в памяти, и правка файлов его не меняет.
+        После смены схемы старый процесс бьётся о новую базу сырой ошибкой SQL
+        вида «no such column» — по ней не догадаешься, что нужен перезапуск.
+        """
+        version = self._stored_version()
+        if version is not None and version > SCHEMA_VERSION:
+            raise StorageTooNew(
+                f"База данных версии {version}, а этот код понимает {SCHEMA_VERSION}. "
+                f"Скорее всего запущена старая версия программы — перезапустите её."
+            )
+
+    def _remember_version(self) -> None:
+        self._db.execute("DELETE FROM schema_meta")
+        self._db.execute("INSERT INTO schema_meta (version) VALUES (?)", (SCHEMA_VERSION,))
 
     # ── Миграция ──────────────────────────────────────────────────────────────
 
