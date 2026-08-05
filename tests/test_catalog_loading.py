@@ -5,6 +5,7 @@ import json
 import pytest
 
 from adapters.open5e_catalog import (
+    DEFAULT_SPELLS_PATH,
     CatalogMissing,
     load_beasts,
     load_creatures,
@@ -86,6 +87,38 @@ def test_spells_outside_the_srd_are_added_to_the_catalog(tmp_path):
 
     assert "Thorn Whip" in names
     assert "Hex" in names
+
+
+@pytest.mark.skipif(
+    not DEFAULT_SPELLS_PATH.exists(),
+    reason="каталог не загружен: uv run python -m tools.sync_catalog",
+)
+def test_every_rename_points_at_something_real():
+    """
+    Таблица переименований набрана вручную. Опечатка в ней не падает —
+    заклинание просто перестаёт находиться, как будто его нет.
+    """
+    from core.spell_lists import SRD_RENAMES
+
+    known = {spell.name for spell in load_spells()}
+    missing = sorted(target for target in SRD_RENAMES.values() if target not in known)
+    assert missing == [], f"переименования ведут в пустоту: {missing}"
+
+
+@pytest.mark.skipif(
+    not DEFAULT_SPELLS_PATH.exists(),
+    reason="каталог не загружен: uv run python -m tools.sync_catalog",
+)
+def test_added_spells_do_not_shadow_catalog_ones():
+    """
+    Если заклинание уже есть в SRD, добавлять его вручную не нужно: две записи
+    с одним именем сделают ввод неоднозначным и сломают то, что работало.
+    """
+    from core.spell_lists import EXTRA_SPELLS
+
+    names = [spell.name for spell in load_spells()]
+    for extra in EXTRA_SPELLS:
+        assert names.count(extra.name) == 1, f"{extra.name} задвоился"
 
 
 def test_missing_catalog_says_how_to_fix_it(tmp_path):

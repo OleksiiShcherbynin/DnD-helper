@@ -11,6 +11,10 @@
 
 from core.models import Spell
 
+#: Ключ Изобретателя. Определён в class_profiles, но импортировать его отсюда
+#: нельзя — он импортирует этот модуль. Строка короче, чем распутывание цикла.
+ARTIFICER_KEY = "hb_artificer"
+
 #: Изобретатель (Tasha's Cauldron of Everything).
 #:
 #: Из 66 заклинаний класса в SRD есть 57. Отсутствуют пришедшие вместе с
@@ -94,7 +98,121 @@ EXTRA_SPELLS: tuple[Spell, ...] = (
         damage_dice="1d6",
         damage_types=frozenset({"necrotic"}),
     ),
+    Spell(
+        # PHB, но в SRD не попал.
+        key="phb_chromatic-orb",
+        name="Chromatic Orb",
+        level=1,
+        school="evocation",
+        classes=["srd_sorcerer", "srd_wizard"],
+        casting_time="action",
+        duration="instantaneous",
+        role="damage",
+        damage_dice="3d8",
+        # Тип выбирается при накладывании, поэтому доступны все шесть.
+        damage_types=frozenset({"acid", "cold", "fire", "lightning", "poison", "thunder"}),
+    ),
+    Spell(
+        # Xanathar's Guide to Everything.
+        key="xge_absorb-elements",
+        name="Absorb Elements",
+        level=1,
+        school="abjuration",
+        classes=["srd_druid", "srd_ranger", "srd_sorcerer", "srd_wizard", ARTIFICER_KEY],
+        casting_time="reaction",
+        duration="1 round",
+        role="defense",
+    ),
+    Spell(
+        key="xge_mold-earth",
+        name="Mold Earth",
+        level=0,
+        school="transmutation",
+        classes=["srd_druid", "srd_sorcerer", "srd_wizard"],
+        casting_time="action",
+        duration="instantaneous",
+        role="utility",
+    ),
+    Spell(
+        key="xge_dragons-breath",
+        name="Dragon's Breath",
+        level=2,
+        school="transmutation",
+        classes=["srd_sorcerer", "srd_wizard"],
+        casting_time="bonus action",
+        duration="1 minute",
+        concentration=True,
+        role="damage",
+        damage_dice="3d6",
+        damage_types=frozenset({"acid", "cold", "fire", "lightning", "poison"}),
+    ),
+    Spell(
+        # Tasha's Cauldron of Everything.
+        key="tce_mind-sliver",
+        name="Mind Sliver",
+        level=0,
+        school="enchantment",
+        classes=["srd_sorcerer", "srd_warlock", "srd_wizard"],
+        casting_time="action",
+        duration="instantaneous",
+        role="damage",
+        damage_dice="1d6",
+        damage_types=frozenset({"psychic"}),
+    ),
+    Spell(
+        # Урон есть, но берут его ради отнятого действия — это контроль.
+        key="tce_mind-whip",
+        name="Tasha's Mind Whip",
+        level=2,
+        school="enchantment",
+        classes=["srd_sorcerer", "srd_wizard"],
+        casting_time="action",
+        duration="1 round",
+        role="control",
+        damage_dice="3d6",
+        damage_types=frozenset({"psychic"}),
+    ),
+    Spell(
+        # Fizban's Treasury of Dragons. Держит цель на месте, отсюда контроль.
+        key="ftd_rimes-binding-ice",
+        name="Rime's Binding Ice",
+        level=2,
+        school="evocation",
+        classes=["srd_sorcerer", "srd_wizard"],
+        casting_time="action",
+        duration="instantaneous",
+        role="control",
+        damage_dice="3d8",
+        damage_types=frozenset({"cold"}),
+    ),
 )
+
+
+#: Как заклинание называется в книге игрока -> как оно называется в SRD.
+#:
+#: В открытый документ именные заклинания попали без имён: Tenser's Floating
+#: Disk стал просто Floating Disk. Игрок печатает то, что написано у него,
+#: и без этой таблицы шестнадцать заклинаний просто «не находились».
+#:
+#: Все шестнадцать сверены с каталогом тестом.
+SRD_RENAMES: dict[str, str] = {
+    "bigby's hand": "Arcane Hand",
+    "drawmij's instant summons": "Instant Summons",
+    "evard's black tentacles": "Black Tentacles",
+    "leomund's secret chest": "Secret Chest",
+    "leomund's tiny hut": "Tiny Hut",
+    "melf's acid arrow": "Acid Arrow",
+    "mordenkainen's faithful hound": "Faithful Hound",
+    "mordenkainen's magnificent mansion": "Magnificent Mansion",
+    "mordenkainen's private sanctum": "Private Sanctum",
+    "mordenkainen's sword": "Arcane Sword",
+    "nystul's magic aura": "Arcanist's Magic Aura",
+    "otiluke's freezing sphere": "Freezing Sphere",
+    "otiluke's resilient sphere": "Resilient Sphere",
+    "otto's irresistible dance": "Irresistible Dance",
+    "rary's telepathic bond": "Telepathic Bond",
+    "tenser's floating disk": "Floating Disk",
+}
 
 
 #: Артиллерист получает эти заклинания сверх списка класса, и они всегда

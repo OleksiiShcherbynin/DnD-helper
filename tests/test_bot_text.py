@@ -251,6 +251,34 @@ def test_an_ambiguous_prefix_is_not_guessed():
     assert parse_spell_command("add fire", SPELL_NAMES) == (None, True, [], ["fire"])
 
 
+def test_names_the_srd_stripped_are_still_understood():
+    """
+    В SRD именные заклинания переименованы: Tenser's Floating Disk стал просто
+    Floating Disk. Игрок печатает то, что написано в его книге.
+    """
+    names = ["Floating Disk", "Arcane Hand", "Black Tentacles"]
+    assert parse_spell_command("add tenser's floating disk", names) == (
+        None, True, ["Floating Disk"], []
+    )
+    assert parse_spell_command("add bigby's hand", names) == (
+        None, True, ["Arcane Hand"], []
+    )
+
+
+def test_a_curly_apostrophe_is_the_same_apostrophe():
+    """
+    Телефон подставляет ’ вместо ', и различать их значит отвергать половину
+    введённого с телефона.
+    """
+    names = ["Floating Disk", "Hunter's Mark"]
+    assert parse_spell_command("add tenser’s floating disk", names) == (
+        None, True, ["Floating Disk"], []
+    )
+    assert parse_spell_command("add hunter’s mark", names) == (
+        None, True, ["Hunter's Mark"], []
+    )
+
+
 def test_an_exact_name_wins_over_a_longer_one():
     """
     "shield" — это целиком название заклинания, хотя оно же начинает

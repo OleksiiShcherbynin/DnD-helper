@@ -28,6 +28,7 @@ from core.models import (
     Stats,
 )
 from core.party_sheet import PartySheet
+from core.spell_lists import SRD_RENAMES
 
 #: Уровни персонажа в D&D 5e.
 _MIN_LEVEL, _MAX_LEVEL = 1, 20
@@ -109,27 +110,44 @@ def parse_member(text: str) -> tuple[str, str, int, str | None] | None:
 _SPELL_ACTIONS = {"add": True, "добавить": True, "remove": False, "убрать": False}
 
 
+def _normalise(text: str) -> str:
+    """
+    Привести название к сравнимому виду.
+
+    Фигурный апостроф подставляют телефоны, и различать его с прямым значит
+    отвергать половину введённого с телефона.
+    """
+    return " ".join(text.replace("’", "'").lower().split())
+
+
 def _resolve_name(wanted: str, catalog_names: list[str]) -> str | None:
     """
     Найти название по началу. Неоднозначное не угадывается.
 
+    Сначала имя из книги игрока переводится в имя SRD: в открытый документ
+    именные заклинания попали без имён, и Tenser's Floating Disk там просто
+    Floating Disk.
+
     Точное совпадение побеждает: "shield" — это целиком название заклинания,
     хотя оно же начинает "Shield of Faith". Отказ из-за такого предшествования
-    закрыл бы ввод половины каталога — коротких названий, у которых есть более
-    длинные родственники.
+    закрыл бы ввод коротких названий, у которых есть более длинные родственники.
     """
-    exact = [name for name in catalog_names if name.lower() == wanted]
+    wanted = _normalise(wanted)
+    wanted = _normalise(SRD_RENAMES.get(wanted, wanted))
+
+    exact = [name for name in catalog_names if _normalise(name) == wanted]
     if exact:
         return exact[0]
 
-    matches = [name for name in catalog_names if name.lower().startswith(wanted)]
+    matches = [name for name in catalog_names if _normalise(name).startswith(wanted)]
     return matches[0] if len(matches) == 1 else None
 
 
 def candidates_for(wanted: str, catalog_names: list[str], limit: int = 6) -> list[str]:
     """Что подошло под неоднозначное начало — чтобы было из чего выбрать."""
+    prefix = _normalise(wanted)
     return sorted(
-        name for name in catalog_names if name.lower().startswith(wanted.strip().lower())
+        name for name in catalog_names if _normalise(name).startswith(prefix)
     )[:limit]
 
 
