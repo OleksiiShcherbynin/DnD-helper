@@ -12,6 +12,25 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class Attack(BaseModel):
+    """
+    Одна атака из статблока.
+
+    Бонус атаки берётся из структурированного поля источника — ему здесь можно
+    верить, по всем 118 атакам каталога оно совпало с текстом. А вот кости и
+    прибавку приходится доставать из описания: структурные damage_bonus и
+    damage_type у источника битые.
+    """
+
+    name: str
+    to_hit: int = 0
+    dice_count: int = 0
+    die_size: int = 0
+    damage_bonus: int = 0
+    #: Средний урон, как он напечатан в статблоке.
+    average: float = 0.0
+
+
 class Beast(BaseModel):
     """Зверь как кандидат на Wild Shape."""
 
@@ -28,8 +47,13 @@ class Beast(BaseModel):
     #: Ключи местностей: forest, grassland, hills, coast, desert, mountain, arctic...
     environments: list[str] = Field(default_factory=list)
 
-    #: Средний урон за раунд, вытащенный из текста статблока.
+    #: Средний урон за раунд, вытащенный из текста статблока. Считается без
+    #: цели: сколько выйдет, если все атаки попадут.
     damage_per_round: float = 0.0
+
+    #: Разобранные атаки — нужны, чтобы считать урон против конкретного AC.
+    attacks: list[Attack] = Field(default_factory=list)
+    has_multiattack: bool = False
 
     darkvision: int = 0
     blindsight: int = 0

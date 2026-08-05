@@ -22,3 +22,6 @@ class AdviceRequest:
     party: tuple[PartyMember, ...] = field(default_factory=tuple)
     top_n: int = 3
     allow_swarms: bool = False
+    #: Доспех противника, если игрок может его прикинуть. Без него урон
+    #: считается по костям, а не по попаданиям.
+    target_ac: int | None = None

@@ -12,6 +12,7 @@
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from core.combat import expected_round_damage
 from core.models import Beast
 from core.situation import Situation, parse_situation
 
@@ -41,6 +42,9 @@ class ScoredBeast:
     beast: Beast
     score: float
     why: str
+    #: Ожидаемый урон против конкретного AC. None — цель не указана, и врать
+    #: про попадания не по чему.
+    expected_damage: float | None = None
 
 
 def _durability(beast: Beast) -> float:
@@ -93,10 +97,23 @@ def _senses(beast: Beast) -> float:
     )
 
 
-def _metrics_for(situation: Situation):
-    """Замеры кандидата. Мобильность зависит от обстановки, остальное — нет."""
+def _damage_metric(target_ac: int | None):
+    """
+    Чем меряется урон.
+
+    Если враг назван, считаем ожидаемый урон по его доспеху: форма с крупными
+    костями, но скверным бонусом атаки, по латнику бьёт хуже, чем кажется.
+    Без цели остаётся честное «сколько выйдет, если всё попадёт».
+    """
+    if target_ac is None:
+        return lambda beast: beast.damage_per_round
+    return lambda beast: expected_round_damage(beast, target_ac=target_ac)
+
+
+def _metrics_for(situation: Situation, target_ac: int | None):
+    """Замеры кандидата. Мобильность зависит от обстановки, урон — от цели."""
     return {
-        "damage": lambda beast: beast.damage_per_round,
+        "damage": _damage_metric(target_ac),
         "durability": _durability,
         "mobility": lambda beast: _mobility(beast, situation),
         "senses": _senses,
@@ -114,9 +131,20 @@ def _weights_for(situation: Situation) -> dict[str, float]:
     }
 
 
-def _describe(beast: Beast, situation: Situation, terrain_matched: bool) -> str:
+def _describe(
+    beast: Beast,
+    situation: Situation,
+    terrain_matched: bool,
+    expected: float | None,
+    target_ac: int | None,
+) -> str:
+    damage = (
+        f"урон/раунд {expected:.1f} против AC {target_ac}"
+        if expected is not None
+        else f"урон/раунд {beast.damage_per_round:g}"
+    )
     parts = [
-        f"урон/раунд {beast.damage_per_round:g}",
+        damage,
         f"{beast.hp} HP при AC {beast.ac}",
         f"скорость {_mobility(beast, situation):g}",
     ]
@@ -127,14 +155,21 @@ def _describe(beast: Beast, situation: Situation, terrain_matched: bool) -> str:
     return ", ".join(parts)
 
 
-def rank_beasts(beasts: Iterable[Beast], situation: Situation) -> list[ScoredBeast]:
-    """Отсортировать легальные формы по пригодности к описанной ситуации."""
+def rank_beasts(
+    beasts: Iterable[Beast], situation: Situation, *, target_ac: int | None = None
+) -> list[ScoredBeast]:
+    """
+    Отсортировать легальные формы по пригодности к описанной ситуации.
+
+    target_ac — доспех противника, если он известен. С ним урон считается по
+    попаданиям, без него — по костям.
+    """
     pool = list(beasts)
     if not pool:
         return []
 
     weights = _weights_for(situation)
-    metrics = _metrics_for(situation)
+    metrics = _metrics_for(situation, target_ac)
     peaks = {
         name: max(metric(beast) for beast in pool) or 1.0
         for name, metric in metrics.items()
@@ -149,8 +184,19 @@ def rank_beasts(beasts: Iterable[Beast], situation: Situation) -> list[ScoredBea
         terrain_matched = bool(situation.terrains & set(beast.environments))
         if terrain_matched:
             score += _TERRAIN_BONUS
+
+        expected = (
+            expected_round_damage(beast, target_ac=target_ac)
+            if target_ac is not None
+            else None
+        )
         scored.append(
-            ScoredBeast(beast, round(score, 4), _describe(beast, situation, terrain_matched))
+            ScoredBeast(
+                beast,
+                round(score, 4),
+                _describe(beast, situation, terrain_matched, expected, target_ac),
+                expected_damage=expected,
+            )
         )
 
     return sorted(scored, key=lambda item: (-item.score, item.beast.name))
@@ -187,11 +233,17 @@ class WildShapeAdvisor:
                     "CR": f"{scored.beast.cr:g}",
                     "HP": str(scored.beast.hp),
                     "AC": str(scored.beast.ac),
-                    "Урон/раунд": f"{scored.beast.damage_per_round:g}",
+                    # С названной целью показываем ожидаемый урон по ней, иначе
+                    # урон при условии, что все атаки попали.
+                    "Урон/раунд": (
+                        f"{scored.expected_damage:.1f}"
+                        if scored.expected_damage is not None
+                        else f"{scored.beast.damage_per_round:g}"
+                    ),
                 },
                 source=scored,
             )
-            for scored in rank_beasts(legal, situation)
+            for scored in rank_beasts(legal, situation, target_ac=request.target_ac)
         ]
         return options, len(legal), situation
 

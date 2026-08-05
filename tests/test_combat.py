@@ -13,6 +13,7 @@ from core.combat import (
     attack_expected_damage,
     average_roll,
     crit_chance,
+    expected_round_damage,
     hit_chance,
     rounds_to_defeat,
     save_fail_chance,
@@ -102,3 +103,53 @@ def test_rounds_to_defeat_rounds_up():
 
 def test_no_damage_means_never():
     assert rounds_to_defeat(hp=30, damage_per_round=0) is None
+
+
+# ── Урон за раунд против конкретной цели ──────────────────────────────────────
+
+
+def test_round_damage_falls_as_the_target_gets_harder_to_hit(beasts):
+    wolf = next(beast for beast in beasts if beast.name == "Wolf")
+    assert expected_round_damage(wolf, target_ac=10) > expected_round_damage(wolf, target_ac=18)
+
+
+def test_multiattack_counts_two_attacks(beasts):
+    """
+    У медведя укус и когти, и Multiattack велит бить обоими. Один укус даёт
+    заметно меньше, чем связка.
+    """
+    bear = next(beast for beast in beasts if beast.name == "Brown Bear")
+    both = expected_round_damage(bear, target_ac=13)
+    best_single = max(
+        attack_expected_damage(
+            attack_bonus=attack.to_hit,
+            dice_count=attack.dice_count,
+            die_size=attack.die_size,
+            damage_bonus=attack.damage_bonus,
+            target_ac=13,
+        )
+        for attack in bear.attacks
+    )
+    assert both > best_single * 1.5
+
+
+def test_single_attack_beast_uses_only_its_best(beasts):
+    """У волка одна атака — удваивать её нечем."""
+    wolf = next(beast for beast in beasts if beast.name == "Wolf")
+    bite = wolf.attacks[0]
+    assert expected_round_damage(wolf, target_ac=13) == pytest.approx(
+        attack_expected_damage(
+            attack_bonus=bite.to_hit,
+            dice_count=bite.dice_count,
+            die_size=bite.die_size,
+            damage_bonus=bite.damage_bonus,
+            target_ac=13,
+        )
+    )
+
+
+def test_advantage_raises_round_damage(beasts):
+    wolf = next(beast for beast in beasts if beast.name == "Wolf")
+    assert expected_round_damage(wolf, target_ac=15, advantage=1) > expected_round_damage(
+        wolf, target_ac=15
+    )

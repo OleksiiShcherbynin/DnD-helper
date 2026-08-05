@@ -38,6 +38,17 @@ DB_PATH = Path(__file__).resolve().parent.parent / "data" / "copilot.db"
 #: Каким каталогом кормить каждого советника.
 CATALOG_FOR = {"wildshape": "beasts", "spells": "spells"}
 
+#: Точный AC противника игроку знать неоткуда, поэтому спрашиваем то, что видно
+#: за столом, и подставляем типичное значение. Это приближение, но оно намного
+#: ближе к правде, чем расчёт вообще без цели.
+ARMOUR_CHOICES: dict[str, int | None] = {
+    "Не знаю": None,
+    "Без брони — зверь, бандит": 12,
+    "Кожа и щит — стражник, разбойник": 15,
+    "Кольчуга — латник, вожак орков": 17,
+    "Латы — рыцарь, голем": 19,
+}
+
 st.set_page_config(page_title="Tabletop Copilot", page_icon="🐺", layout="centered")
 
 
@@ -173,15 +184,28 @@ chosen = st.radio(
 )
 
 situation_text = ""
+target_ac = None
 if chosen.key == "wildshape":
     situation_text = st.text_input(
         "Что происходит?", placeholder="болото, преследуем убегающего гоблина"
     )
+    armour = st.selectbox(
+        "Насколько защищён противник?",
+        list(ARMOUR_CHOICES),
+        help=(
+            "Оценка на глаз: точный AC игроку знать неоткуда. С ней урон считается "
+            "по попаданиям, без неё — по костям."
+        ),
+    )
+    target_ac = ARMOUR_CHOICES[armour]
+
     if not situation_text:
         st.info("Опишите обстановку и задачу. Поиск вариантов бесплатный и мгновенный.")
         st.stop()
 
-request = AdviceRequest(**{**vars(request), "situation_text": situation_text})
+request = AdviceRequest(
+    **{**vars(request), "situation_text": situation_text, "target_ac": target_ac}
+)
 result = advise(chosen, catalog=catalogs[CATALOG_FOR[chosen.key]], request=request)
 
 if not result.options:

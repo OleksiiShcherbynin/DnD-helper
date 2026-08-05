@@ -100,6 +100,41 @@ def save_fail_chance(save_dc: int, save_bonus: int = 0) -> float:
     return 1 - faces_that_save / _FACES
 
 
+def expected_round_damage(beast, *, target_ac: int, advantage: int = 0) -> float:
+    """
+    Ожидаемый урон зверя за раунд по цели с таким AC.
+
+    Это и есть то, чего не хватало ранжированию форм: раньше урон брался как
+    «сколько выйдет, если все атаки попадут», и форма с внушительными костями
+    обгоняла форму, которая по этой цели действительно попадает.
+
+    При мультиатаке берутся две лучшие по ожидаемому урону — все звери SRD
+    с ней бьют ровно дважды.
+    """
+    if not beast.attacks:
+        return 0.0
+
+    expected = sorted(
+        (
+            attack_expected_damage(
+                attack_bonus=attack.to_hit,
+                dice_count=attack.dice_count,
+                die_size=attack.die_size,
+                damage_bonus=attack.damage_bonus,
+                target_ac=target_ac,
+                advantage=advantage,
+            )
+            # Урон без разбора костей (фиксированный) считаем по среднему из текста.
+            if attack.dice_count
+            else attack.average * hit_chance(attack.to_hit, target_ac, advantage)
+            for attack in beast.attacks
+        ),
+        reverse=True,
+    )
+
+    return sum(expected[:2]) if beast.has_multiattack else expected[0]
+
+
 def rounds_to_defeat(hp: int, damage_per_round: float) -> int | None:
     """
     Сколько раундов нужно, чтобы свалить цель. None — если урона нет вовсе.

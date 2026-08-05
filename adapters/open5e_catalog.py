@@ -14,7 +14,7 @@ import json
 from pathlib import Path
 import re
 
-from core.models import Beast, ClassData, Spell, SpellRole
+from core.models import Attack, Beast, ClassData, Spell, SpellRole
 
 #: Куда tools/sync_catalog.py кладёт загруженный каталог.
 _CATALOG_DIR = Path(__file__).resolve().parent.parent / "data" / "catalog"
@@ -28,6 +28,10 @@ class CatalogMissing(FileNotFoundError):
 
 #: "Hit: 7 (2d4 + 2) piercing damage" -> 7. Первое число и есть средний урон.
 _HIT_AVERAGE = re.compile(r"Hit:\s*(\d+)")
+
+#: Оттуда же кости и прибавка: "(2d4 + 2)". У 101 атаки из 118 они в скобках,
+#: у остальных урон фиксированный и скобок нет.
+_HIT_DICE = re.compile(r"Hit:\s*\d+\s*\((\d+)d(\d+)(?:\s*([+-])\s*(\d+))?\)")
 
 #: Скорости, которые нас интересуют. Всё остальное (crawl, hover) — служебное.
 _SPEED_KEYS = ("walk", "fly", "swim", "climb", "burrow")
@@ -43,6 +47,47 @@ def _attack_averages(actions: list[dict]) -> list[float]:
     return averages
 
 
+def _is_multiattack(action: dict) -> bool:
+    return (action.get("name") or "").lower() == "multiattack"
+
+
+def _parse_attacks(actions: list[dict]) -> list[Attack]:
+    """
+    Разобрать атаки статблока.
+
+    Бонус атаки берётся из структурированного поля: по всем 118 атакам каталога
+    оно совпало с текстом, в отличие от damage_bonus и damage_type, которые
+    у источника битые. Кости достаются из описания.
+
+    Multiattack пропускается: своего урона у него нет, это указание бить дважды.
+    """
+    attacks = []
+    for action in actions or ():
+        desc = action.get("desc") or ""
+        average = _HIT_AVERAGE.search(desc)
+        if average is None or _is_multiattack(action):
+            continue
+
+        structured = (action.get("attacks") or [{}])[0]
+        dice = _HIT_DICE.search(desc)
+        count, size, bonus = 0, 0, 0
+        if dice:
+            count, size = int(dice.group(1)), int(dice.group(2))
+            bonus = int(dice.group(4) or 0) * (-1 if dice.group(3) == "-" else 1)
+
+        attacks.append(
+            Attack(
+                name=action.get("name") or "Атака",
+                to_hit=int(structured.get("to_hit_mod") or 0),
+                dice_count=count,
+                die_size=size,
+                damage_bonus=bonus,
+                average=float(average.group(1)),
+            )
+        )
+    return attacks
+
+
 def _damage_per_round(actions: list[dict]) -> float:
     """
     Оценка урона за раунд.
@@ -55,9 +100,7 @@ def _damage_per_round(actions: list[dict]) -> float:
     if not averages:
         return 0.0
 
-    has_multiattack = any(
-        (action.get("name") or "").lower() == "multiattack" for action in actions or ()
-    )
+    has_multiattack = any(_is_multiattack(action) for action in actions or ())
     if has_multiattack:
         return sum(averages[:2])
     return averages[0]
@@ -65,6 +108,7 @@ def _damage_per_round(actions: list[dict]) -> float:
 
 def parse_beast(raw: dict) -> Beast:
     """Собрать доменного зверя из сырого ответа Open5e."""
+    actions = raw.get("actions") or []
     speed = raw.get("speed") or {}
     speeds = {
         key: speed[key]
@@ -80,7 +124,9 @@ def parse_beast(raw: dict) -> Beast:
         hp=int(raw["hit_points"]),
         speeds=speeds,
         environments=[env["key"] for env in raw.get("environments") or ()],
-        damage_per_round=_damage_per_round(raw.get("actions")),
+        damage_per_round=_damage_per_round(actions),
+        attacks=_parse_attacks(actions),
+        has_multiattack=any(_is_multiattack(action) for action in actions),
         darkvision=raw.get("darkvision_range") or 0,
         blindsight=raw.get("blindsight_range") or 0,
         tremorsense=raw.get("tremorsense_range") or 0,

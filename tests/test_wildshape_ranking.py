@@ -76,3 +76,42 @@ def test_swim_speed_counts_in_water(beasts):
     """А в озере всё наоборот."""
     order = _order(beasts, "в озере, надо догнать убегающего")
     assert order.index("Giant Octopus") < order.index("Wolf")
+
+
+# ── Урон против конкретной цели ───────────────────────────────────────────────
+
+
+def _scored(beasts, text, target_ac=None, level=8):
+    legal = legal_wild_shape_beasts(beasts, druid_level=level)
+    return {
+        item.beast.name: item
+        for item in rank_beasts(legal, parse_situation(text), target_ac=target_ac)
+    }
+
+
+def test_damage_shown_against_armour_is_lower_than_if_everything_hit(beasts):
+    """
+    Без цели урон считается как «сколько выйдет, если все атаки попадут».
+    Против настоящего доспеха он обязан просесть — часть атак промахнётся.
+    """
+    bear = _scored(beasts, "бой", target_ac=18)["Brown Bear"]
+    raw = next(b for b in beasts if b.name == "Brown Bear").damage_per_round
+
+    assert bear.expected_damage is not None
+    assert bear.expected_damage < raw
+
+
+def test_a_softer_target_takes_more(beasts):
+    soft = _scored(beasts, "бой", target_ac=10)["Brown Bear"].expected_damage
+    hard = _scored(beasts, "бой", target_ac=20)["Brown Bear"].expected_damage
+    assert soft > hard
+
+
+def test_explanation_names_the_armour_it_was_counted_against(beasts):
+    bear = _scored(beasts, "бой", target_ac=16)["Brown Bear"]
+    assert "16" in bear.why
+
+
+def test_without_a_target_nothing_pretends_to_know_the_armour(beasts):
+    bear = _scored(beasts, "бой")["Brown Bear"]
+    assert bear.expected_damage is None
