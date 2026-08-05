@@ -228,6 +228,22 @@ def test_a_known_spell_list_narrows_what_the_party_covers(database_path):
     assert "лечение" in " ".join(str(w.value) for w in narrow.warning)
 
 
+def test_two_members_with_the_same_name_do_not_break_the_page(database_path):
+    """
+    Двух друидов в отряде ничто не запрещает, а Streamlit падает на одинаковых
+    ключах элементов. Страница обязана рисоваться, а не разваливаться.
+    """
+    from adapters.sqlite_storage import Storage
+
+    storage = Storage(database_path)
+    storage.save_character("local", class_key="srd_druid", level=6)
+    storage.add_member("local", name="Миша", class_key="hb_artificer", level=4)
+    storage.add_member("local", name="Миша", class_key="srd_fighter", level=3)
+
+    app = _app()
+    assert not app.exception, [str(e) for e in app.exception]
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

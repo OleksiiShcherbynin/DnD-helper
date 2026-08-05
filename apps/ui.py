@@ -268,10 +268,12 @@ with st.sidebar:
     st.header("Отряд")
     allies = storage.party_members(LOCAL_OWNER)
     if allies:
-        for ally in allies:
+        # Ключ по порядковому номеру, а не по имени: двух друидов в отряде
+        # ничто не запрещает, а Streamlit падает на одинаковых ключах.
+        for position, ally in enumerate(allies):
             columns = st.columns([4, 1])
             columns[0].write(f"{ally.name} — {display_name(ally.class_key)} {ally.level}")
-            if columns[1].button("✕", key=f"drop_{ally.name}", help="Убрать"):
+            if columns[1].button("✕", key=f"drop_{position}", help="Убрать"):
                 storage.remove_member(LOCAL_OWNER, ally.name)
                 st.rerun()
     else:

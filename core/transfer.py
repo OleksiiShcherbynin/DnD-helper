@@ -123,6 +123,11 @@ def load_party(storage, owner_id: str, text: str) -> list[str]:
     skipped: list[str] = []
     storage.drop_manual_members(owner_id)
 
+    # Если обе стороны смотрят в одну базу и состоят в одной партии, они уже
+    # видят друг друга через код. Ввозить их копиями значит развести двойников:
+    # два Друида и два Миши в одном отряде.
+    already_there = storage.names_belonging_to_others(owner_id)
+
     for entry in party:
         try:
             name = str(entry["name"])
@@ -141,7 +146,7 @@ def load_party(storage, owner_id: str, text: str) -> list[str]:
                 name=name, subclass_key=subclass,
             )
             target = None
-        elif entry.get("played"):
+        elif entry.get("played") or name.casefold() in already_there:
             skipped.append(name)
             continue
         else:

@@ -446,6 +446,30 @@ class Storage:
         wanted = name.strip().casefold()
         return any(row[1] for row in rows if row[0].casefold() == wanted)
 
+    def names_belonging_to_others(self, owner_id: str) -> set[str]:
+        """
+        Имена в партии, которые ведёт не этот владелец.
+
+        Нужно переносу: если обе стороны смотрят в одну базу и состоят в одной
+        партии, они уже видят друг друга, и ввоз только плодил бы двойников.
+        """
+        character = self.get_character(owner_id)
+        if character is None:
+            return set()
+
+        where, value = (
+            ("party_code = ?", character.party_code)
+            if character.party_code
+            else ("owner_id = ?", owner_id)
+        )
+        return {
+            str(row[0]).casefold()
+            for row in self._db.execute(
+                f"SELECT name FROM characters WHERE {where} AND owner_id != ?",
+                (value, owner_id),
+            )
+        }
+
     def drop_manual_members(self, owner_id: str) -> int:
         """
         Убрать всех заведённых вручную. Нужно переносу: слепок применяется

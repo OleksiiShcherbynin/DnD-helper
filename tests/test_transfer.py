@@ -82,6 +82,43 @@ def test_characters_of_live_players_are_skipped(storage, tmp_path):
     assert [m.name for m in elsewhere.party_members("петя")] == ["Миша"]
 
 
+def test_importing_into_the_same_party_adds_nobody(storage):
+    """
+    Слепок нужен, чтобы перенести отряд в другую базу. Внутри одной базы обе
+    стороны и так видят друг друга через код партии, и ввоз только плодил бы
+    двойников: два Друида и два Миши в одном отряде.
+    """
+    _filled_party(storage)
+    code = storage.create_party("вася")
+    text = dump_party(storage, "вася")
+
+    storage.save_character("сайт", class_key="srd_bard", level=2)
+    storage.join_party("сайт", code)
+
+    skipped = load_party(storage, "сайт", text)
+
+    names = [m.name for m in storage.party_members("сайт")]
+    assert names.count("Миша") == 1, f"Миша задвоился: {names}"
+    assert "Миша" in skipped
+
+
+def test_a_name_already_taken_by_someone_else_is_skipped(storage, tmp_path):
+    """
+    Своего персонажа ввоз перезаписывает, а чужого — нет: он принадлежит тому,
+    кто его ведёт, и в отряде уже есть.
+    """
+    _filled_party(storage)
+    code = storage.create_party("вася")
+    text = dump_party(storage, "вася")
+
+    storage.save_character("сайт", class_key="srd_bard", level=2)
+    storage.join_party("сайт", code)
+    load_party(storage, "сайт", text)
+
+    own = storage.get_character("сайт")
+    assert own.class_key == "srd_druid", "свой персонаж заменяется слепком"
+
+
 def test_an_empty_party_gives_nothing_to_carry(storage):
     with pytest.raises(LookupError):
         dump_party(storage, "никто")
