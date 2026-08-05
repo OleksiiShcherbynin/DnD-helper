@@ -49,7 +49,7 @@ from apps.formatting import (
     parse_member,
 )
 from core.advisor import ADVISORS, advise
-from core.class_profiles import display_name
+from core.class_profiles import display_name, subclass_profile
 from core.encounter import estimate_encounter
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
@@ -113,6 +113,7 @@ def build_request(deps: Deps, user_id: str, situation_text: str = "") -> AdviceR
     return AdviceRequest(
         class_key=character.class_key,
         level=character.level,
+        subclass_key=character.subclass_key,
         situation_text=situation_text,
         party=tuple(deps.storage.party_members(user_id)),
     )
@@ -154,12 +155,15 @@ async def me(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     parsed = parse_character(raw)
     if parsed is None:
         await update.message.reply_html(
-            "Не разобрал. Нужно класс и уровень: <code>/me друид 6</code>"
+            "Не разобрал. Нужно класс и уровень: <code>/me друид 6</code>\n"
+            "С подклассом: <code>/me друид 6 круг луны</code>"
         )
         return
 
-    class_key, level = parsed
-    deps.storage.save_character(user_id, class_key=class_key, level=level)
+    class_key, level, subclass_key = parsed
+    deps.storage.save_character(
+        user_id, class_key=class_key, level=level, subclass_key=subclass_key
+    )
     await update.message.reply_html(
         "Записал.\n" + format_character(deps.storage.get_character(user_id))
     )
@@ -259,15 +263,20 @@ async def member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if parsed is None:
         await update.message.reply_html(
             "Нужно имя, класс и уровень: <code>/member Гарет воин 5</code>\n"
+            "С подклассом: <code>/member Кузьма изобретатель 5 артиллерист</code>\n"
             "Убрать: <code>/member remove Гарет</code>"
         )
         return
 
-    name, class_key, level = parsed
-    deps.storage.add_member(user_id, name=name, class_key=class_key, level=level)
+    name, class_key, level, subclass_key = parsed
+    deps.storage.add_member(
+        user_id, name=name, class_key=class_key, level=level, subclass_key=subclass_key,
+    )
+    label = display_name(class_key)
+    if subclass_key:
+        label += f", {subclass_profile(subclass_key).name}"
     await update.message.reply_html(
-        f"Добавил: <b>{html.escape(name)}</b>, "
-        f"{html.escape(display_name(class_key))} {level} уровня.\n"
+        f"Добавил: <b>{html.escape(name)}</b>, {html.escape(label)} {level} уровня.\n"
         + format_party(deps.storage.party_members(user_id))
     )
 

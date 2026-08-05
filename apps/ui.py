@@ -28,7 +28,13 @@ from adapters.open5e_catalog import (
     load_spells,
 )
 from core.advisor import ADVISORS, advise
-from core.class_profiles import CASTERS, NON_CASTER_NAMES, display_name
+from core.class_profiles import (
+    CASTERS,
+    NON_CASTER_NAMES,
+    SUBCLASSES,
+    display_name,
+    subclass_profile,
+)
 from core.encounter import estimate_encounter
 from core.models import ABILITY_NAMES, ROLE_NAMES
 from core.party_sheet import build_party_sheet
@@ -116,6 +122,27 @@ explainer = get_explainer()
 
 ALL_CLASSES = list(CASTERS) + [f"srd_{key}" for key in NON_CASTER_NAMES]
 
+
+def _pick_subclass(class_key: str, current: str | None, widget_key: str) -> str | None:
+    """
+    Выпадающий список подклассов — только тех, что принадлежат этому классу.
+
+    Классу без описанных подклассов список не показывается вовсе: пустой
+    выбор из одного варианта «нет» только занимает место.
+    """
+    options = [key for key, item in SUBCLASSES.items() if item.parent == class_key]
+    if not options:
+        return None
+
+    choices = [None, *options]
+    return st.selectbox(
+        "Подкласс",
+        choices,
+        index=choices.index(current) if current in choices else 0,
+        format_func=lambda key: "не выбран" if key is None else subclass_profile(key).name,
+        key=f"subclass_{widget_key}",
+    )
+
 own = storage.get_character(LOCAL_OWNER)
 
 with st.sidebar:
@@ -126,11 +153,16 @@ with st.sidebar:
         format_func=display_name,
     )
     level = st.slider("Уровень", 1, 20, own.level if own else 6)
+    subclass_key = _pick_subclass(class_key, own.subclass_key if own else None, "own")
 
     # Персонаж сохраняется сразу: отдельная кнопка «сохранить» только
     # добавляет способ забыть её нажать.
-    if own is None or (own.class_key, own.level) != (class_key, level):
-        storage.save_character(LOCAL_OWNER, class_key=class_key, level=level)
+    if own is None or (own.class_key, own.level, own.subclass_key) != (
+        class_key, level, subclass_key
+    ):
+        storage.save_character(
+            LOCAL_OWNER, class_key=class_key, level=level, subclass_key=subclass_key
+        )
         own = storage.get_character(LOCAL_OWNER)
 
     st.header("Отряд")
@@ -152,12 +184,14 @@ with st.sidebar:
             "Класс участника", ALL_CLASSES, format_func=display_name, key="new_class"
         )
         new_level = st.number_input("Уровень участника", 1, 20, 5)
+        new_subclass = _pick_subclass(new_class, None, "new")
         if st.form_submit_button("Добавить") and new_name.strip():
             storage.add_member(
                 LOCAL_OWNER,
                 name=new_name.strip(),
                 class_key=new_class,
                 level=int(new_level),
+                subclass_key=new_subclass,
             )
             st.rerun()
 
@@ -194,6 +228,7 @@ with st.sidebar:
 request = AdviceRequest(
     class_key=class_key,
     level=level,
+    subclass_key=subclass_key,
     party=tuple(storage.party_members(LOCAL_OWNER)),
     top_n=top_n,
     allow_swarms=allow_swarms,

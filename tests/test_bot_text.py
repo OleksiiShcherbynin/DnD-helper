@@ -42,13 +42,19 @@ def test_unknown_class_gives_nothing_instead_of_guessing():
     assert parse_class("некромант") is None
 
 
-@pytest.mark.parametrize("text, class_key, level", [
-    ("друид 6", "srd_druid", 6),
-    ("волшебник 12", "srd_wizard", 12),
-    ("  жрец   3  ", "srd_cleric", 3),
+@pytest.mark.parametrize("text, expected", [
+    ("друид 6", ("srd_druid", 6, None)),
+    ("волшебник 12", ("srd_wizard", 12, None)),
+    ("  жрец   3  ", ("srd_cleric", 3, None)),
+    ("друид 6 круг луны", ("srd_druid", 6, "moon")),
+    ("изобретатель 5 артиллерист", ("hb_artificer", 5, "artillerist")),
 ])
-def test_character_line_is_parsed(text, class_key, level):
-    assert parse_character(text) == (class_key, level)
+def test_character_line_is_parsed(text, expected):
+    assert parse_character(text) == expected
+
+
+def test_character_line_refuses_a_subclass_of_another_class():
+    assert parse_character("волшебник 5 круг луны") is None
 
 
 @pytest.mark.parametrize("text", ["друид", "друид 0", "друид 21", "друид шесть", "", "6"])
@@ -73,13 +79,40 @@ def test_empty_party_says_so_instead_of_showing_nothing():
 
 
 @pytest.mark.parametrize("text, expected", [
-    ("Гарет воин 5", ("Гарет", "srd_fighter", 5)),
-    ("Сир Гарет Отважный воин 5", ("Сир Гарет Отважный", "srd_fighter", 5)),
-    ("  Лия   жрец  7 ", ("Лия", "srd_cleric", 7)),
+    ("Гарет воин 5", ("Гарет", "srd_fighter", 5, None)),
+    ("Сир Гарет Отважный воин 5", ("Сир Гарет Отважный", "srd_fighter", 5, None)),
+    ("  Лия   жрец  7 ", ("Лия", "srd_cleric", 7, None)),
 ])
 def test_member_line_is_parsed(text, expected):
     """Имя может быть из нескольких слов, поэтому разбор идёт с конца."""
     assert parse_member(text) == expected
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Кузьма изобретатель 5 артиллерист",
+     ("Кузьма", "hb_artificer", 5, "artillerist")),
+    ("Мира друид 6 круг луны", ("Мира", "srd_druid", 6, "moon")),
+    ("Сир Гарет изобретатель 3 артиллерист",
+     ("Сир Гарет", "hb_artificer", 3, "artillerist")),
+])
+def test_subclass_goes_after_the_level(text, expected):
+    """
+    Уровень служит разделителем: имя до класса, подкласс после уровня. Иначе
+    многословные имя и подкласс пришлось бы разделять кавычками.
+    """
+    assert parse_member(text) == expected
+
+
+def test_unknown_subclass_is_refused_rather_than_ignored():
+    """
+    Молча выбросить непонятый подкласс значит посчитать персонажа не тем,
+    кто он есть, и никак об этом не сказать.
+    """
+    assert parse_member("Кузьма изобретатель 5 кузнец") is None
+
+
+def test_subclass_of_another_class_is_refused():
+    assert parse_member("Кузьма изобретатель 5 круг луны") is None
 
 
 @pytest.mark.parametrize("text", [

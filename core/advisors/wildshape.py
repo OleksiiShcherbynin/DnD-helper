@@ -222,7 +222,10 @@ class WildShapeAdvisor:
 
         situation = parse_situation(request.situation_text)
         legal = legal_wild_shape_beasts(
-            catalog, request.level, allow_swarms=request.allow_swarms
+            catalog,
+            request.level,
+            allow_swarms=request.allow_swarms,
+            subclass_key=request.subclass_key,
         )
         options = [
             Option(

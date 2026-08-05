@@ -140,6 +140,51 @@ def test_old_database_is_migrated_without_losing_anyone(tmp_path):
     assert [m.class_key for m in storage.party_members("вася")] == ["srd_cleric"]
 
 
+def test_subclass_is_remembered(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6, subclass_key="moon")
+    assert storage.get_character("вася").subclass_key == "moon"
+
+
+def test_subclass_is_optional(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    assert storage.get_character("вася").subclass_key is None
+
+
+def test_member_subclass_reaches_the_party(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.add_member(
+        "вася", name="Кузьма", class_key="hb_artificer", level=5,
+        subclass_key="artillerist",
+    )
+
+    member = storage.party_members("вася")[0]
+    assert member.class_key == "hb_artificer"
+    assert member.subclass_key == "artillerist"
+
+
+def test_the_old_artillerist_class_becomes_a_subclass(tmp_path):
+    """
+    Артиллерист какое-то время был заведён отдельным классом. Персонажи,
+    созданные тогда, обязаны пережить переезд, а не остаться с ключом класса,
+    которого больше нет.
+    """
+    path = tmp_path / "copilot.db"
+    before = Storage(path)
+    before.save_character("вася", class_key="srd_druid", level=6)
+    before._db.execute(
+        "UPDATE characters SET class_key = 'hb_artificer_artillerist' "
+        "WHERE telegram_id = 'вася'"
+    )
+    before._db.execute("UPDATE schema_meta SET version = 2")
+    before._db.commit()
+    before.close()
+
+    character = Storage(path).get_character("вася")
+
+    assert character.class_key == "hb_artificer"
+    assert character.subclass_key == "artillerist"
+
+
 def test_database_from_a_newer_version_says_to_restart(tmp_path):
     """
     Работающий бот держит модули в памяти, и правка файлов его не меняет.

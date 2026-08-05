@@ -180,6 +180,7 @@ class SpellAdvisor:
             catalog,
             class_key=request.class_key,
             character_level=request.level,
+            subclass_key=request.subclass_key,
             party=request.party,
         )
         options = [

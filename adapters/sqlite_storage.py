@@ -1,4 +1,4 @@
-"""
+﻿"""
 Хранилище персонажей и партий.
 
 Бот многопользовательский, поэтому JSON-файл здесь не годится: обращения
@@ -29,7 +29,8 @@ CREATE TABLE IF NOT EXISTS characters (
     name        TEXT NOT NULL,
     class_key   TEXT NOT NULL,
     level       INTEGER NOT NULL,
-    party_code  TEXT
+    party_code  TEXT,
+    subclass_key TEXT
 );
 CREATE TABLE IF NOT EXISTS parties (
     code       TEXT PRIMARY KEY,
@@ -43,7 +44,11 @@ CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
 """
 
 #: Версия схемы, которую понимает этот код. Поднимается при каждой её смене.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+
+#: Артиллерист какое-то время был отдельным классом. Персонажи, созданные
+#: тогда, переезжают на класс с подклассом.
+_RETIRED_CLASS_KEYS = {"hb_artificer_artillerist": ("hb_artificer", "artillerist")}
 
 
 class StorageTooNew(RuntimeError):
@@ -55,8 +60,13 @@ _CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 _CODE_LENGTH = 6
 
 
+#: Колонки, которыми описывается участник отряда. Один список на все выборки,
+#: чтобы порядок полей не разъезжался между запросами.
+_MEMBER_COLUMNS = "class_key, level, name, subclass_key"
+
+
 def _row_to_member(row) -> PartyMember:
-    return PartyMember(class_key=row[0], level=row[1], name=row[2])
+    return PartyMember(class_key=row[0], level=row[1], name=row[2], subclass_key=row[3])
 
 
 class Storage:
@@ -69,8 +79,25 @@ class Storage:
         self._refuse_if_newer_than_code()
         self._migrate_if_needed()
         self._db.executescript(_SCHEMA)
+        self._add_subclass_column()
+        self._retire_old_class_keys()
         self._remember_version()
         self._db.commit()
+
+    def _add_subclass_column(self) -> None:
+        """Дополнить существующую таблицу колонкой подкласса, не теряя записей."""
+        columns = {row[1] for row in self._db.execute("PRAGMA table_info(characters)")}
+        if "subclass_key" not in columns:
+            self._db.execute("ALTER TABLE characters ADD COLUMN subclass_key TEXT")
+
+    def _retire_old_class_keys(self) -> None:
+        """Перевести классы, которые стали подклассами."""
+        for retired, (class_key, subclass_key) in _RETIRED_CLASS_KEYS.items():
+            self._db.execute(
+                "UPDATE characters SET class_key = ?, subclass_key = ? "
+                "WHERE class_key = ?",
+                (class_key, subclass_key, retired),
+            )
 
     def _stored_version(self) -> int | None:
         try:
@@ -132,7 +159,13 @@ class Storage:
     # ── Свой персонаж ─────────────────────────────────────────────────────────
 
     def save_character(
-        self, user_id: str, *, class_key: str, level: int, name: str | None = None
+        self,
+        user_id: str,
+        *,
+        class_key: str,
+        level: int,
+        name: str | None = None,
+        subclass_key: str | None = None,
     ) -> None:
         """Создать или заменить собственного персонажа владельца."""
         existing = self._db.execute(
@@ -142,31 +175,42 @@ class Storage:
         label = name or display_name(class_key)
         if existing:
             self._db.execute(
-                "UPDATE characters SET class_key = ?, level = ?, name = ? WHERE id = ?",
-                (class_key, level, label, existing[0]),
+                "UPDATE characters SET class_key = ?, level = ?, name = ?, "
+                "subclass_key = ? WHERE id = ?",
+                (class_key, level, label, subclass_key, existing[0]),
             )
         else:
             self._db.execute(
-                "INSERT INTO characters (owner_id, telegram_id, name, class_key, level) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (user_id, user_id, label, class_key, level),
+                "INSERT INTO characters "
+                "(owner_id, telegram_id, name, class_key, level, subclass_key) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, user_id, label, class_key, level, subclass_key),
             )
         self._db.commit()
 
     def get_character(self, user_id: str) -> Character | None:
         row = self._db.execute(
-            "SELECT class_key, level, party_code, name FROM characters "
+            "SELECT class_key, level, party_code, name, subclass_key FROM characters "
             "WHERE telegram_id = ?",
             (user_id,),
         ).fetchone()
         if row is None:
             return None
-        return Character(class_key=row[0], level=row[1], party_code=row[2], name=row[3])
+        return Character(
+            class_key=row[0], level=row[1], party_code=row[2],
+            name=row[3], subclass_key=row[4],
+        )
 
     # ── Участники, заведённые вручную ─────────────────────────────────────────
 
     def add_member(
-        self, owner_id: str, *, name: str, class_key: str, level: int
+        self,
+        owner_id: str,
+        *,
+        name: str,
+        class_key: str,
+        level: int,
+        subclass_key: str | None = None,
     ) -> None:
         """
         Завести участника, который ботом не пользуется.
@@ -176,9 +220,13 @@ class Storage:
         """
         own = self.get_character(owner_id)
         self._db.execute(
-            "INSERT INTO characters (owner_id, telegram_id, name, class_key, level, party_code) "
-            "VALUES (?, NULL, ?, ?, ?, ?)",
-            (owner_id, name, class_key, level, own.party_code if own else None),
+            "INSERT INTO characters "
+            "(owner_id, telegram_id, name, class_key, level, party_code, subclass_key) "
+            "VALUES (?, NULL, ?, ?, ?, ?, ?)",
+            (
+                owner_id, name, class_key, level,
+                own.party_code if own else None, subclass_key,
+            ),
         )
         self._db.commit()
 
@@ -263,13 +311,13 @@ class Storage:
 
         if character.party_code:
             rows = self._db.execute(
-                "SELECT class_key, level, name FROM characters "
+                "SELECT class_key, level, name, subclass_key FROM characters "
                 "WHERE party_code = ? ORDER BY telegram_id IS NULL, name",
                 (character.party_code,),
             )
         else:
             rows = self._db.execute(
-                "SELECT class_key, level, name FROM characters "
+                "SELECT class_key, level, name, subclass_key FROM characters "
                 "WHERE owner_id = ? ORDER BY telegram_id IS NULL, name",
                 (user_id,),
             )
@@ -292,7 +340,7 @@ class Storage:
             else ("owner_id = ?", user_id)
         )
         rows = self._db.execute(
-            f"SELECT class_key, level, name FROM characters "
+            f"SELECT class_key, level, name, subclass_key FROM characters "
             f"WHERE {where[0]} AND (telegram_id IS NULL OR telegram_id != ?) "
             f"ORDER BY telegram_id IS NULL, name",
             (where[1], user_id),

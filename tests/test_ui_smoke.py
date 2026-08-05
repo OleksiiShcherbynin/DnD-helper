@@ -160,6 +160,30 @@ def test_a_manually_added_member_counts_in_the_sheet(database_path):
     assert "Ловкость" not in " ".join(str(w.value) for w in with_rogue.warning)
 
 
+def test_subclass_is_offered_only_where_it_exists():
+    """
+    У друида есть Круг Луны, у волшебника описанных подклассов нет. Пустой
+    выбор из одного варианта «не выбран» только занимал бы место.
+    """
+    druid = _app()
+    assert any(box.label == "Подкласс" for box in druid.sidebar.selectbox)
+
+    wizard = _app()
+    wizard.sidebar.selectbox[0].set_value("srd_wizard").run()
+    assert not any(box.label == "Подкласс" for box in wizard.sidebar.selectbox)
+
+
+def test_moon_druid_is_offered_bigger_beasts():
+    """CR 2 против CR 1/2 — это разные звери, и разница обязана быть видна."""
+    app = _app()
+    _widget_by_label(app.sidebar.selectbox, "Подкласс").set_value("moon").run()
+    _widget_by_label(app.text_input, "Что происходит?").set_value("бой в лесу").run()
+
+    assert not app.exception, [str(e) for e in app.exception]
+    offered = " ".join(str(header.value) for header in app.subheader)
+    assert offered, "формы не показаны"
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

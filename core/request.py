@@ -18,6 +18,8 @@ class AdviceRequest:
 
     class_key: str
     level: int
+    #: Подкласс: меняет и список заклинаний, и правила превращения.
+    subclass_key: str | None = None
     situation_text: str = ""
     party: tuple[PartyMember, ...] = field(default_factory=tuple)
     top_n: int = 3

@@ -13,60 +13,90 @@ import html
 import re
 
 from core.advisor import Advice
-from core.class_profiles import display_name, parse_class
+from core.class_profiles import (
+    display_name,
+    parse_class,
+    parse_subclass,
+    subclass_profile,
+)
 from core.models import ABILITY_NAMES, ROLE_NAMES, Character, PartyMember
 from core.party_sheet import PartySheet
 
 #: Уровни персонажа в D&D 5e.
 _MIN_LEVEL, _MAX_LEVEL = 1, 20
 
-_CHARACTER_LINE = re.compile(r"^\s*([^\d\s]+)\s+(\d{1,2})\s*$")
-
-
-def parse_character(text: str) -> tuple[str, int] | None:
+def parse_character(text: str) -> tuple[str, int, str | None] | None:
     """
-    Разобрать строку вида "друид 6".
+    Разобрать строку вида "друид 6" или "друид 6 круг луны".
 
     Возвращает None на всё, что не разобралось: пропущенный уровень, уровень
-    вне 1-20, неизвестный класс. Бот на это отвечает подсказкой, а не ошибкой.
-    """
-    match = _CHARACTER_LINE.match(text or "")
-    if match is None:
-        return None
-
-    class_key = parse_class(match.group(1))
-    if class_key is None:
-        return None
-
-    level = int(match.group(2))
-    if not _MIN_LEVEL <= level <= _MAX_LEVEL:
-        return None
-
-    return class_key, level
-
-
-def parse_member(text: str) -> tuple[str, str, int] | None:
-    """
-    Разобрать строку вида "Сир Гарет воин 5" в имя, класс и уровень.
-
-    Разбор идёт с конца: уровень последний, класс перед ним, всё остальное —
-    имя. Иначе многословное имя пришлось бы брать в кавычки, а за столом их
-    никто не ставит.
+    вне 1-20, неизвестный класс или подкласс чужого класса. Бот на это
+    отвечает подсказкой, а не ошибкой.
     """
     parts = (text or "").split()
-    if len(parts) < 3 or not parts[-1].isdigit():
+    if len(parts) < 2 or not parts[1].isdigit():
         return None
 
-    level = int(parts[-1])
-    if not _MIN_LEVEL <= level <= _MAX_LEVEL:
-        return None
-
-    class_key = parse_class(parts[-2])
+    class_key = parse_class(parts[0])
     if class_key is None:
         return None
 
-    name = " ".join(parts[:-2]).strip()
-    return (name, class_key, level) if name else None
+    level = int(parts[1])
+    if not _MIN_LEVEL <= level <= _MAX_LEVEL:
+        return None
+
+    tail = " ".join(parts[2:]).strip()
+    if not tail:
+        return class_key, level, None
+
+    subclass_key = parse_subclass(tail)
+    if subclass_key is None or subclass_profile(subclass_key).parent != class_key:
+        return None
+
+    return class_key, level, subclass_key
+
+
+def parse_member(text: str) -> tuple[str, str, int, str | None] | None:
+    """
+    Разобрать строку вида "Кузьма изобретатель 5 артиллерист".
+
+    Уровень служит разделителем: имя до класса, подкласс после уровня. Иначе
+    многословные имя и подкласс пришлось бы разделять кавычками, а за столом
+    их никто не ставит.
+
+    Непонятый подкласс — отказ, а не молчаливый пропуск: посчитать персонажа
+    не тем, кто он есть, и никак об этом не сказать хуже, чем переспросить.
+    """
+    parts = (text or "").split()
+    level_at = next(
+        (index for index, part in enumerate(parts) if part.isdigit()), None
+    )
+    if level_at is None or level_at < 2:
+        return None
+
+    level = int(parts[level_at])
+    if not _MIN_LEVEL <= level <= _MAX_LEVEL:
+        return None
+
+    class_key = parse_class(parts[level_at - 1])
+    if class_key is None:
+        return None
+
+    name = " ".join(parts[: level_at - 1]).strip()
+    if not name:
+        return None
+
+    tail = " ".join(parts[level_at + 1 :]).strip()
+    if not tail:
+        return (name, class_key, level, None)
+
+    subclass_key = parse_subclass(tail)
+    if subclass_key is None:
+        return None
+    if subclass_profile(subclass_key).parent != class_key:
+        return None
+
+    return (name, class_key, level, subclass_key)
 
 
 #: "goblin 4", "4 goblin", "goblin x4" — число где угодно, и его может не быть.
@@ -115,7 +145,10 @@ def parse_enemies(
 
 
 def format_character(character: Character) -> str:
-    lines = [f"<b>{html.escape(display_name(character.class_key))}</b>, {character.level} уровень"]
+    label = display_name(character.class_key)
+    if character.subclass_key:
+        label += f", {subclass_profile(character.subclass_key).name}"
+    lines = [f"<b>{html.escape(label)}</b>, {character.level} уровень"]
     if character.party_code:
         lines.append(f"Партия: <code>{html.escape(character.party_code)}</code>")
     return "\n".join(lines)

@@ -17,7 +17,11 @@ from core.rules import (
 
 
 def legal_wild_shape_beasts(
-    beasts: Iterable[Creature], druid_level: int, *, allow_swarms: bool = False
+    beasts: Iterable[Creature],
+    druid_level: int,
+    *,
+    allow_swarms: bool = False,
+    subclass_key: str | None = None,
 ) -> list[Creature]:
     """
     Звери, в которых друид указанного уровня имеет право превратиться.
@@ -27,7 +31,7 @@ def legal_wild_shape_beasts(
     ещё и вытесняют осмысленные варианты несколькими почти одинаковыми
     строками. Решение спорное, поэтому оставлено переключателем, а не зашито.
     """
-    cap = wild_shape_cr_cap(druid_level)
+    cap = wild_shape_cr_cap(druid_level, subclass_key)
     if cap is None:
         return []
 
