@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 
 from adapters.gemini_explainer import explainer_from_env
 from adapters.llm_cache import LlmCache
+from adapters.sqlite_storage import Storage
 from adapters.open5e_catalog import (
     BEAST_TYPE,
     CatalogMissing,
@@ -29,13 +30,22 @@ from adapters.open5e_catalog import (
 from core.advisor import ADVISORS, advise
 from core.class_profiles import CASTERS, NON_CASTER_NAMES, display_name
 from core.encounter import estimate_encounter
-from core.models import ABILITY_NAMES, ROLE_NAMES, PartyMember
+from core.models import ABILITY_NAMES, ROLE_NAMES
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
 load_dotenv()
 
-DB_PATH = Path(__file__).resolve().parent.parent / "data" / "copilot.db"
+#: Путь к базе можно переопределить: тесты обязаны работать на временном файле,
+#: а не писать персонажей в ту базу, которой пользуются за столом.
+DB_PATH = Path(
+    os.getenv("COPILOT_DB")
+    or Path(__file__).resolve().parent.parent / "data" / "copilot.db"
+)
+
+#: У сайта нет аккаунтов, поэтому он ведёт записи под одним владельцем.
+#: Чтобы считать тот же отряд, что и бот, достаточно ввести код партии.
+LOCAL_OWNER = "local"
 
 #: Каким каталогом кормить каждого советника.
 CATALOG_FOR = {"wildshape": "beasts", "spells": "spells"}
@@ -83,6 +93,14 @@ def get_explainer():
     return explainer_from_env()
 
 
+def get_storage():
+    """
+    Без кэша: подключение к SQLite дешёвое, а закэшированное соединение
+    пережило бы смену базы и утащило бы в тест боевые данные.
+    """
+    return Storage(DB_PATH)
+
+
 st.title("🐺 Tabletop Copilot")
 
 try:
@@ -95,21 +113,69 @@ except CatalogMissing as error:
 cache = get_cache()
 explainer = get_explainer()
 
+storage = get_storage()
 ALL_CLASSES = list(CASTERS) + [f"srd_{key}" for key in NON_CASTER_NAMES]
 
+own = storage.get_character(LOCAL_OWNER)
+
 with st.sidebar:
-    st.header("Персонаж")
+    st.header("Ваш персонаж")
     class_key = st.selectbox(
-        "Класс", ALL_CLASSES, index=ALL_CLASSES.index("srd_druid"),
+        "Класс", ALL_CLASSES,
+        index=ALL_CLASSES.index(own.class_key if own else "srd_druid"),
         format_func=display_name,
     )
-    level = st.slider("Уровень", 1, 20, 6)
+    level = st.slider("Уровень", 1, 20, own.level if own else 6)
 
-    st.header("Партия")
-    party_keys = st.multiselect(
-        "Кто ещё в отряде", ALL_CLASSES, format_func=display_name,
-        help="Нужно, чтобы советовать то, чего партии не хватает.",
+    # Персонаж сохраняется сразу: отдельная кнопка «сохранить» только
+    # добавляет способ забыть её нажать.
+    if own is None or (own.class_key, own.level) != (class_key, level):
+        storage.save_character(LOCAL_OWNER, class_key=class_key, level=level)
+        own = storage.get_character(LOCAL_OWNER)
+
+    st.header("Отряд")
+    allies = storage.party_members(LOCAL_OWNER)
+    if allies:
+        for ally in allies:
+            columns = st.columns([4, 1])
+            columns[0].write(f"{ally.name} — {display_name(ally.class_key)} {ally.level}")
+            if columns[1].button("✕", key=f"drop_{ally.name}", help="Убрать"):
+                storage.remove_member(LOCAL_OWNER, ally.name)
+                st.rerun()
+    else:
+        st.caption("Пока никого. Добавьте тех, кто ботом не пользуется.")
+
+    with st.form("add_member", clear_on_submit=True):
+        st.caption("Добавить участника")
+        new_name = st.text_input("Имя", placeholder="Гарет")
+        new_class = st.selectbox(
+            "Класс участника", ALL_CLASSES, format_func=display_name, key="new_class"
+        )
+        new_level = st.number_input("Уровень участника", 1, 20, 5)
+        if st.form_submit_button("Добавить") and new_name.strip():
+            storage.add_member(
+                LOCAL_OWNER,
+                name=new_name.strip(),
+                class_key=new_class,
+                level=int(new_level),
+            )
+            st.rerun()
+
+    st.header("Общая партия с ботом")
+    st.caption(
+        "Введите код из бота, чтобы сайт считал тот же отряд. "
+        f"Сейчас: {own.party_code or 'отдельно'}"
     )
+    code = st.text_input("Код партии", value="", max_chars=8)
+    join, leave = st.columns(2)
+    if join.button("Войти") and code.strip():
+        if storage.join_party(LOCAL_OWNER, code):
+            st.rerun()
+        else:
+            st.warning("Такого кода нет.")
+    if leave.button("Выйти"):
+        storage.leave_party(LOCAL_OWNER)
+        st.rerun()
 
     st.header("Настройки")
     top_n = st.slider("Сколько вариантов показать", 1, 8, 3)
@@ -128,15 +194,14 @@ with st.sidebar:
 request = AdviceRequest(
     class_key=class_key,
     level=level,
-    party=tuple(PartyMember(key) for key in party_keys),
+    party=tuple(storage.party_members(LOCAL_OWNER)),
     top_n=top_n,
     allow_swarms=allow_swarms,
 )
+full_party = storage.full_party(LOCAL_OWNER)
 
 sheet = build_party_sheet(
-    [PartyMember(class_key, level), *request.party],
-    classes=class_data,
-    spells=catalogs["spells"],
+    full_party, classes=class_data, spells=catalogs["spells"]
 )
 
 with st.expander("📋 Лист партии — что отряд умеет и чего ему не хватает"):
@@ -198,11 +263,7 @@ with st.expander("⚔️ Опасность боя — драться или б�
     if not enemies:
         st.info("Выберите противников — хотя бы одного.")
     else:
-        fight = estimate_encounter(
-            [PartyMember(class_key, level), *request.party],
-            enemies,
-            classes=class_data,
-        )
+        fight = estimate_encounter(full_party, enemies, classes=class_data)
 
         banner = {
             "лёгкая": st.success,

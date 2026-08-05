@@ -23,6 +23,21 @@ pytestmark = pytest.mark.skipif(
 UI = "apps/ui.py"
 
 
+@pytest.fixture
+def database_path(tmp_path):
+    return tmp_path / "test.db"
+
+
+@pytest.fixture(autouse=True)
+def isolated_database(database_path, monkeypatch):
+    """
+    Интерфейс сохраняет персонажей, поэтому тесты обязаны работать на своей
+    базе. Без этого прогон тестов дописывал бы участников в ту базу, которой
+    пользуются за столом, и вердикты плыли бы от запуска к запуску.
+    """
+    monkeypatch.setenv("COPILOT_DB", str(database_path))
+
+
 def _app(monkeypatch=None):
     return AppTest.from_file(UI, default_timeout=30).run()
 
@@ -122,6 +137,27 @@ def test_a_hopeless_fight_is_called_hopeless():
     assert not app.exception, [str(e) for e in app.exception]
     assert app.error, "смертельный бой должен показываться тревожно"
     assert "мертельно" in " ".join(str(m.value) for m in app.error)
+
+
+def test_a_manually_added_member_counts_in_the_sheet(database_path):
+    """
+    Ради этого всё и затевалось: участник, который ботом не пользуется, должен
+    попадать в расчёты наравне с остальными.
+
+    Друид владеет Интеллектом и Мудростью, а Ловкость не тянет — плут её
+    закрывает, и предупреждение про урон по площади обязано исчезнуть.
+    """
+    from adapters.sqlite_storage import Storage
+
+    alone = _app()
+    assert "Ловкость" in " ".join(str(w.value) for w in alone.warning)
+
+    storage = Storage(database_path)
+    storage.add_member("local", name="Тень", class_key="srd_rogue", level=5)
+
+    with_rogue = _app()
+    assert not with_rogue.exception, [str(e) for e in with_rogue.exception]
+    assert "Ловкость" not in " ".join(str(w.value) for w in with_rogue.warning)
 
 
 def test_a_non_caster_is_told_there_is_nothing_for_them():
