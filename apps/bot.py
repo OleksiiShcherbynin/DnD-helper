@@ -46,10 +46,11 @@ from apps.formatting import (
     format_sheet,
     parse_character,
     parse_enemies,
+    parse_member,
 )
 from core.advisor import ADVISORS, advise
+from core.class_profiles import display_name
 from core.encounter import estimate_encounter
-from core.models import PartyMember
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
@@ -64,6 +65,8 @@ HELP = (
     "Я подсказываю по D&D 5e: во что превратиться друиду и какие заклинания взять.\n\n"
     "<b>Как начать</b>\n"
     "/me друид 6 — задать своего персонажа\n"
+    "/member Гарет воин 5 — добавить того, кто ботом не пользуется\n"
+    "/member remove Гарет — убрать его\n"
     "/party create — создать партию и получить код\n"
     "/party join КОД — вступить в чужую партию\n\n"
     "<b>Как спрашивать</b>\n"
@@ -213,7 +216,7 @@ async def party(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     sheet = build_party_sheet(
-        [PartyMember(character.class_key, character.level), *allies],
+        deps.storage.full_party(user_id),
         classes=deps.classes,
         spells=deps.catalogs["spells"],
     )
@@ -221,6 +224,52 @@ async def party(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if character.party_code:
         text += f"\n\nКод партии: <code>{character.party_code}</code>"
     await update.message.reply_html(text)
+
+
+async def member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Завести или убрать участника, который ботом не пользуется.
+
+        /member Гарет воин 5
+        /member remove Гарет
+    """
+    deps, user_id = _deps(context), _user_id(update)
+    raw = " ".join(context.args)
+
+    if deps.storage.get_character(user_id) is None:
+        await update.message.reply_html(
+            "Сначала задайте своего персонажа: <code>/me друид 6</code>"
+        )
+        return
+
+    action = context.args[0].lower() if context.args else ""
+    if action in ("remove", "убрать", "del"):
+        name = " ".join(context.args[1:]).strip()
+        if not name:
+            await update.message.reply_html("Кого убрать? <code>/member remove Гарет</code>")
+        elif deps.storage.remove_member(user_id, name):
+            await update.message.reply_html(f"Убрал {html.escape(name)}.")
+        else:
+            await update.message.reply_html(
+                f"Не нашёл {html.escape(name)} среди тех, кого вы заводили."
+            )
+        return
+
+    parsed = parse_member(raw)
+    if parsed is None:
+        await update.message.reply_html(
+            "Нужно имя, класс и уровень: <code>/member Гарет воин 5</code>\n"
+            "Убрать: <code>/member remove Гарет</code>"
+        )
+        return
+
+    name, class_key, level = parsed
+    deps.storage.add_member(user_id, name=name, class_key=class_key, level=level)
+    await update.message.reply_html(
+        f"Добавил: <b>{html.escape(name)}</b>, "
+        f"{html.escape(display_name(class_key))} {level} уровня.\n"
+        + format_party(deps.storage.party_members(user_id))
+    )
 
 
 async def _answer(update: Update, context: ContextTypes.DEFAULT_TYPE, *, preferred: str | None) -> None:
@@ -278,10 +327,7 @@ async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    party = [
-        PartyMember(character.class_key, character.level),
-        *deps.storage.party_members(user_id),
-    ]
+    party = deps.storage.full_party(user_id)
     result = estimate_encounter(
         party,
         [(by_name[name], count) for name, count in resolved],
@@ -365,6 +411,7 @@ def build_handlers() -> list:
         CommandHandler("spells", spells),
         CommandHandler("forms", forms),
         CommandHandler("fight", fight),
+        CommandHandler("member", member),
         CallbackQueryHandler(explain, pattern="^explain$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_text),
     ]

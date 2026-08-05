@@ -45,6 +45,30 @@ def parse_character(text: str) -> tuple[str, int] | None:
     return class_key, level
 
 
+def parse_member(text: str) -> tuple[str, str, int] | None:
+    """
+    Разобрать строку вида "Сир Гарет воин 5" в имя, класс и уровень.
+
+    Разбор идёт с конца: уровень последний, класс перед ним, всё остальное —
+    имя. Иначе многословное имя пришлось бы брать в кавычки, а за столом их
+    никто не ставит.
+    """
+    parts = (text or "").split()
+    if len(parts) < 3 or not parts[-1].isdigit():
+        return None
+
+    level = int(parts[-1])
+    if not _MIN_LEVEL <= level <= _MAX_LEVEL:
+        return None
+
+    class_key = parse_class(parts[-2])
+    if class_key is None:
+        return None
+
+    name = " ".join(parts[:-2]).strip()
+    return (name, class_key, level) if name else None
+
+
 #: "goblin 4", "4 goblin", "goblin x4" — число где угодно, и его может не быть.
 _ENEMY_COUNT = re.compile(r"(?:^|\s)x?(\d{1,2})(?:\s|$)")
 

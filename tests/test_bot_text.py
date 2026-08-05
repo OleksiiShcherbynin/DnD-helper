@@ -15,6 +15,7 @@ from apps.formatting import (
     format_sheet,
     parse_character,
     parse_enemies,
+    parse_member,
 )
 from core.party_sheet import build_party_sheet
 from core.advisor import ADVISORS, advise
@@ -69,6 +70,27 @@ def test_party_listing_names_everyone():
 
 def test_empty_party_says_so_instead_of_showing_nothing():
     assert format_party([]).strip(), "пустой ответ бот отправить не может"
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("Гарет воин 5", ("Гарет", "srd_fighter", 5)),
+    ("Сир Гарет Отважный воин 5", ("Сир Гарет Отважный", "srd_fighter", 5)),
+    ("  Лия   жрец  7 ", ("Лия", "srd_cleric", 7)),
+])
+def test_member_line_is_parsed(text, expected):
+    """Имя может быть из нескольких слов, поэтому разбор идёт с конца."""
+    assert parse_member(text) == expected
+
+
+@pytest.mark.parametrize("text", [
+    "Гарет воин",        # без уровня
+    "воин 5",            # без имени
+    "Гарет некромант 5",  # класса нет в справочнике
+    "Гарет воин 0",      # уровень вне 1-20
+    "",
+])
+def test_broken_member_line_is_refused(text):
+    assert parse_member(text) is None
 
 
 CATALOG_NAMES = ["Goblin", "Orc", "Ogre", "Young Red Dragon", "Giant Spider"]
