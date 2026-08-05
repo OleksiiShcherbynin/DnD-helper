@@ -209,6 +209,25 @@ def test_entered_numbers_change_the_fight_estimate(database_path):
     assert strong != weak, "введённые числа не дошли до расчёта"
 
 
+def test_a_known_spell_list_narrows_what_the_party_covers(database_path):
+    """
+    Ради этого фаза и делалась. Друид без списка «закрывает» и лечение, и
+    контроль — просто потому, что они есть в списке его класса. Стоит указать,
+    что он знает только Entangle, и лечение обязано стать дырой.
+    """
+    from adapters.sqlite_storage import Storage
+
+    wide = _app()
+    assert "лечение" not in " ".join(str(w.value) for w in wide.warning)
+
+    storage = Storage(database_path)
+    storage.update_spells("local", None, add={"srd_entangle"})
+
+    narrow = _app()
+    assert not narrow.exception, [str(e) for e in narrow.exception]
+    assert "лечение" in " ".join(str(w.value) for w in narrow.warning)
+
+
 def test_a_non_caster_is_told_there_is_nothing_for_them():
     """Воину советовать нечего: ни форм, ни заклинаний."""
     app = _app()

@@ -47,6 +47,7 @@ from apps.formatting import (
     parse_character,
     parse_enemies,
     parse_member,
+    parse_spell_command,
     parse_stats,
 )
 from core.advisor import ADVISORS, advise
@@ -70,6 +71,7 @@ HELP = (
     "/member Гарет воин 5 — добавить того, кто ботом не пользуется\n"
     "/member remove Гарет — убрать его\n"
     "/stats сил 16 кд 17 — вписать числа, можно по частям\n"
+    "/spell add fireball — что персонаж умеет колдовать\n"
     "/party create — создать партию и получить код\n"
     "/party join КОД — вступить в чужую партию\n\n"
     "<b>Как спрашивать</b>\n"
@@ -369,6 +371,65 @@ def _describe_stats(patch: Stats) -> str:
     return ", ".join(parts)
 
 
+async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Вести список заклинаний персонажа.
+
+        /spell add fireball
+        /spell Кузьма add cure wounds
+        /spell remove web
+        /spell — показать список
+    """
+    deps, user_id = _deps(context), _user_id(update)
+
+    character = deps.storage.get_character(user_id)
+    if character is None:
+        await update.message.reply_html(
+            "Сначала задайте своего персонажа: <code>/me друид 6</code>"
+        )
+        return
+
+    by_key = {item.key: item for item in deps.catalogs["spells"]}
+    if not context.args:
+        known = sorted(by_key[key].name for key in character.spell_keys if key in by_key)
+        await update.message.reply_html(
+            "<b>Ваши заклинания:</b>\n" + "\n".join(f"• {html.escape(n)}" for n in known)
+            if known
+            else "Список пуст. Добавить: <code>/spell add fireball</code>"
+        )
+        return
+
+    parsed = parse_spell_command(
+        " ".join(context.args), [item.name for item in deps.catalogs["spells"]]
+    )
+    if parsed is None:
+        await update.message.reply_html(
+            "Не разобрал. Примеры:\n"
+            "<code>/spell add fireball</code>\n"
+            "<code>/spell Кузьма add cure wounds</code>\n"
+            "<code>/spell remove web</code>\n\n"
+            "Названия английские, хватает начала: <code>/spell add cure</code>."
+        )
+        return
+
+    name, adding, spell_name = parsed
+    by_name = {item.name: item.key for item in deps.catalogs["spells"]}
+    changed = deps.storage.update_spells(
+        user_id, name,
+        add={by_name[spell_name]} if adding else set(),
+        remove=set() if adding else {by_name[spell_name]},
+    )
+    if not changed:
+        await update.message.reply_html(
+            f"Не нашёл {html.escape(name or 'персонажа')} среди тех, кого вы заводили."
+        )
+        return
+
+    whose = f" у {html.escape(name)}" if name else ""
+    verb = "Добавил" if adding else "Убрал"
+    await update.message.reply_html(f"{verb}{whose}: {html.escape(spell_name)}.")
+
+
 async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Оценить бой: /fight goblin 4, ogre"""
     deps, user_id = _deps(context), _user_id(update)
@@ -475,6 +536,7 @@ def build_handlers() -> list:
         CommandHandler("fight", fight),
         CommandHandler("member", member),
         CommandHandler("stats", stats),
+        CommandHandler("spell", spell),
         CallbackQueryHandler(explain, pattern="^explain$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_text),
     ]

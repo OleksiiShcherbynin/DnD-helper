@@ -35,7 +35,11 @@ CREATE TABLE IF NOT EXISTS characters (
     -- Введённые вручную числа одним полем JSON. Отдельными колонками их было
     -- бы десять, и каждое новое требовало бы менять схему; по ним никогда не
     -- ищут, поэтому хранить их разобранными незачем.
-    stats       TEXT
+    stats       TEXT,
+    -- Список заклинаний тоже полем JSON, а не отдельной таблицей: он всегда
+    -- нужен вместе с персонажем, и отдельная таблица означала бы запрос на
+    -- каждого участника при выводе отряда.
+    spells      TEXT
 );
 CREATE TABLE IF NOT EXISTS parties (
     code       TEXT PRIMARY KEY,
@@ -49,7 +53,7 @@ CREATE TABLE IF NOT EXISTS schema_meta (version INTEGER NOT NULL);
 """
 
 #: Версия схемы, которую понимает этот код. Поднимается при каждой её смене.
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 #: Артиллерист какое-то время был отдельным классом. Персонажи, созданные
 #: тогда, переезжают на класс с подклассом.
@@ -126,10 +130,22 @@ def _merge_stats(current: Stats, patch: Stats) -> Stats:
     )
 
 
+def _decode_spells(raw: str | None) -> frozenset[str]:
+    """Разобрать список заклинаний. Битое поле не должно ронять весь отряд."""
+    if not raw:
+        return frozenset()
+    try:
+        keys = json.loads(raw)
+    except json.JSONDecodeError:
+        return frozenset()
+    return frozenset(str(key) for key in keys) if isinstance(keys, list) else frozenset()
+
+
 def _row_to_member(row) -> PartyMember:
     return PartyMember(
         class_key=row[0], level=row[1], name=row[2],
         subclass_key=row[3], stats=_decode_stats(row[4]),
+        spell_keys=_decode_spells(row[5]),
     )
 
 
@@ -151,7 +167,7 @@ class Storage:
     def _add_missing_columns(self) -> None:
         """Дополнить существующую таблицу новыми колонками, не теряя записей."""
         columns = {row[1] for row in self._db.execute("PRAGMA table_info(characters)")}
-        for name in ("subclass_key", "stats"):
+        for name in ("subclass_key", "stats", "spells"):
             if name not in columns:
                 self._db.execute(f"ALTER TABLE characters ADD COLUMN {name} TEXT")
 
@@ -255,7 +271,7 @@ class Storage:
 
     def get_character(self, user_id: str) -> Character | None:
         row = self._db.execute(
-            "SELECT class_key, level, party_code, name, subclass_key, stats FROM characters "
+            "SELECT class_key, level, party_code, name, subclass_key, stats, spells FROM characters "
             "WHERE telegram_id = ?",
             (user_id,),
         ).fetchone()
@@ -264,7 +280,49 @@ class Storage:
         return Character(
             class_key=row[0], level=row[1], party_code=row[2],
             name=row[3], subclass_key=row[4], stats=_decode_stats(row[5]),
+            spell_keys=_decode_spells(row[6]),
         )
+
+    # ── Заклинания персонажа ──────────────────────────────────────────────────
+
+    def update_spells(
+        self,
+        owner_id: str,
+        name: str | None,
+        *,
+        add: set[str] = frozenset(),
+        remove: set[str] = frozenset(),
+    ) -> bool:
+        """
+        Добавить или убрать заклинания. За столом правят по одному, а не
+        переписывают список целиком.
+        """
+        return self._write_spells(
+            owner_id, name, lambda current: (current | set(add)) - set(remove)
+        )
+
+    def set_spells(self, owner_id: str, name: str | None, keys: set[str]) -> bool:
+        """
+        Записать список целиком, убирая всё, чего в нём нет.
+
+        Нужно формам: они показывают список полностью, и снятое там должно
+        сниматься.
+        """
+        return self._write_spells(owner_id, name, lambda _: set(keys))
+
+    def _write_spells(self, owner_id: str, name: str | None, change) -> bool:
+        found = self._find_editable(owner_id, name, "spells")
+        if found is None:
+            return False
+
+        row_id, raw = found
+        updated = change(set(_decode_spells(raw)))
+        self._db.execute(
+            "UPDATE characters SET spells = ? WHERE id = ?",
+            (json.dumps(sorted(updated)), row_id),
+        )
+        self._db.commit()
+        return True
 
     def replace_stats(self, owner_id: str, name: str | None, stats: Stats) -> bool:
         """
@@ -288,24 +346,34 @@ class Storage:
         """
         return self._write_stats(owner_id, name, lambda current: _merge_stats(current, patch))
 
-    def _write_stats(self, owner_id: str, name: str | None, change) -> bool:
-        if name is None:
-            row = self._db.execute(
-                "SELECT id, stats FROM characters WHERE telegram_id = ?", (owner_id,)
-            ).fetchone()
-        else:
-            wanted = name.strip().casefold()
-            # Сравнение в Python: встроенный lower() в SQLite кириллицу не трогает.
-            rows = self._db.execute(
-                "SELECT id, stats, name FROM characters "
-                "WHERE owner_id = ? AND telegram_id IS NULL",
-                (owner_id,),
-            ).fetchall()
-            row = next(
-                ((item[0], item[1]) for item in rows if item[2].casefold() == wanted),
-                None,
-            )
+    def _find_editable(
+        self, owner_id: str, name: str | None, column: str
+    ) -> tuple[int, str | None] | None:
+        """
+        Найти персонажа, которого владелец вправе править.
 
+        name = None — свой. Иначе только заведённый вручную: чужие персонажи
+        принадлежат тем, кто ими играет.
+        """
+        if name is None:
+            return self._db.execute(
+                f"SELECT id, {column} FROM characters WHERE telegram_id = ?",
+                (owner_id,),
+            ).fetchone()
+
+        wanted = name.strip().casefold()
+        # Сравнение в Python: встроенный lower() в SQLite кириллицу не трогает.
+        rows = self._db.execute(
+            f"SELECT id, {column}, name FROM characters "
+            f"WHERE owner_id = ? AND telegram_id IS NULL",
+            (owner_id,),
+        ).fetchall()
+        return next(
+            ((item[0], item[1]) for item in rows if item[2].casefold() == wanted), None
+        )
+
+    def _write_stats(self, owner_id: str, name: str | None, change) -> bool:
+        row = self._find_editable(owner_id, name, "stats")
         if row is None:
             return False
 
@@ -426,13 +494,13 @@ class Storage:
 
         if character.party_code:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key, stats FROM characters "
+                "SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
                 "WHERE party_code = ? ORDER BY telegram_id IS NULL, name",
                 (character.party_code,),
             )
         else:
             rows = self._db.execute(
-                "SELECT class_key, level, name, subclass_key, stats FROM characters "
+                "SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
                 "WHERE owner_id = ? ORDER BY telegram_id IS NULL, name",
                 (user_id,),
             )
@@ -455,7 +523,7 @@ class Storage:
             else ("owner_id = ?", user_id)
         )
         rows = self._db.execute(
-            f"SELECT class_key, level, name, subclass_key, stats FROM characters "
+            f"SELECT class_key, level, name, subclass_key, stats, spells FROM characters "
             f"WHERE {where[0]} AND (telegram_id IS NULL OR telegram_id != ?) "
             f"ORDER BY telegram_id IS NULL, name",
             (where[1], user_id),

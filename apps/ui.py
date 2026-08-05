@@ -178,6 +178,28 @@ def _edit_stats(owner: str, member_name: str | None, current: Stats) -> None:
         st.rerun()
 
 
+def _edit_spells(owner: str, member_name: str | None, current: frozenset[str]) -> None:
+    """
+    Выбор заклинаний из каталога.
+
+    Список не ограничен доступным кругом: свитки, предметы и хоумбрю мастера
+    в него не укладываются, а спорить с игроком о том, что у него есть,
+    программе незачем.
+    """
+    by_key = {spell.key: spell for spell in catalogs["spells"]}
+    chosen = st.multiselect(
+        "Что персонаж умеет",
+        sorted(by_key, key=lambda key: by_key[key].name),
+        default=sorted(current & by_key.keys()),
+        format_func=lambda key: f"{by_key[key].name} ({by_key[key].level} кр.)",
+        key=f"spells_{member_name or 'own'}",
+    )
+
+    if set(chosen) != set(current):
+        storage.set_spells(owner, member_name, set(chosen))
+        st.rerun()
+
+
 def _pick_subclass(class_key: str, current: str | None, widget_key: str) -> str | None:
     """
     Выпадающий список подклассов — только тех, что принадлежат этому классу.
@@ -226,6 +248,14 @@ with st.sidebar:
             "а введённое перебивает расчёт."
         )
         _edit_stats(LOCAL_OWNER, None, own.stats if own else Stats())
+
+    with st.expander("Заклинания персонажа"):
+        st.caption(
+            "Пока список пуст, роли партии считаются по всему списку класса — "
+            "для барда и чародея это завышает. Отметьте то, что персонаж "
+            "действительно может применить."
+        )
+        _edit_spells(LOCAL_OWNER, None, own.spell_keys if own else frozenset())
 
     st.header("Отряд")
     allies = storage.party_members(LOCAL_OWNER)

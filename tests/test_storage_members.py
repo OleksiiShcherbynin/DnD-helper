@@ -252,6 +252,54 @@ def test_setting_stats_for_nobody_is_not_an_error(storage):
     assert storage.update_stats("вася", "Никого", Stats(ac=20)) is False
 
 
+def test_spell_list_is_empty_until_entered(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    assert storage.get_character("вася").spell_keys == frozenset()
+
+
+def test_spells_are_added_and_removed_one_at_a_time(storage):
+    """За столом правят по одному заклинанию, а не переписывают список."""
+    storage.save_character("вася", class_key="srd_druid", level=6)
+
+    storage.update_spells("вася", None, add={"srd_entangle", "srd_web"})
+    assert storage.get_character("вася").spell_keys == {"srd_entangle", "srd_web"}
+
+    storage.update_spells("вася", None, remove={"srd_web"})
+    assert storage.get_character("вася").spell_keys == {"srd_entangle"}
+
+
+def test_removing_what_is_not_there_is_not_an_error(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    assert storage.update_spells("вася", None, remove={"srd_web"}) is True
+
+
+def test_spells_of_a_member_are_set_by_name(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.add_member("вася", name="Кузьма", class_key="hb_artificer", level=5)
+
+    assert storage.update_spells("вася", "кузьма", add={"srd_fireball"}) is True
+    assert storage.party_members("вася")[0].spell_keys == {"srd_fireball"}
+
+
+def test_replacing_the_list_drops_what_was_left_out(storage):
+    """Форма показывает список целиком, значит снятое в ней должно сниматься."""
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.update_spells("вася", None, add={"srd_entangle", "srd_web"})
+
+    storage.set_spells("вася", None, {"srd_web"})
+
+    assert storage.get_character("вася").spell_keys == {"srd_web"}
+
+
+def test_spells_of_a_stranger_are_refused(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.save_character("петя", class_key="srd_cleric", level=4)
+    code = storage.create_party("вася")
+    storage.join_party("петя", code)
+
+    assert storage.update_spells("вася", "жрец", add={"srd_bless"}) is False
+
+
 def test_database_from_a_newer_version_says_to_restart(tmp_path):
     """
     Работающий бот держит модули в памяти, и правка файлов его не меняет.

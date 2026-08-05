@@ -16,6 +16,7 @@ from apps.formatting import (
     parse_character,
     parse_enemies,
     parse_member,
+    parse_spell_command,
     parse_stats,
 )
 from core.party_sheet import build_party_sheet
@@ -168,6 +169,36 @@ def test_a_key_without_a_number_invalidates_the_line():
     про остальное. Лучше переспросить целиком.
     """
     assert parse_stats("сил 16 лов") is None
+
+
+SPELL_NAMES = ["Fireball", "Cure Wounds", "Web", "Fire Bolt", "Wall of Fire"]
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("add fireball", (None, True, "Fireball")),
+    ("remove web", (None, False, "Web")),
+    ("Кузьма add cure wounds", ("Кузьма", True, "Cure Wounds")),
+    ("Сир Гарет remove fireball", ("Сир Гарет", False, "Fireball")),
+])
+def test_spell_command_is_parsed(text, expected):
+    assert parse_spell_command(text, SPELL_NAMES) == expected
+
+
+def test_a_prefix_is_enough():
+    """За столом никто не печатает Wall of Fire целиком."""
+    assert parse_spell_command("add wall of", SPELL_NAMES) == (None, True, "Wall of Fire")
+
+
+def test_an_ambiguous_prefix_is_not_guessed():
+    """"fire" подходит и Fireball, и Fire Bolt, и Wall of Fire."""
+    assert parse_spell_command("add fire", SPELL_NAMES) is None
+
+
+@pytest.mark.parametrize("text", [
+    "", "add", "fireball", "add такого-нет", "Кузьма fireball",
+])
+def test_broken_spell_command_is_refused(text):
+    assert parse_spell_command(text, SPELL_NAMES) is None
 
 
 CATALOG_NAMES = ["Goblin", "Orc", "Ogre", "Young Red Dragon", "Giant Spider"]

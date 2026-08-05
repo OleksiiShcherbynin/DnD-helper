@@ -136,6 +136,8 @@ class Character:
     subclass_key: str | None = None
     #: Что про персонажа ввели руками. Пустое — считаем сами.
     stats: "Stats" = field(default_factory=lambda: Stats())
+    #: Заклинания, которыми персонаж располагает. Пусто — «не знаю».
+    spell_keys: frozenset[str] = field(default_factory=frozenset)
 
 
 @dataclass(frozen=True)
@@ -190,6 +192,9 @@ class PartyMember:
     subclass_key: str | None = None
     #: Что про участника ввели руками. Пустое — считаем сами.
     stats: "Stats" = field(default_factory=lambda: Stats())
+    #: Заклинания, которые персонаж действительно может применить. Пусто —
+    #: значит «не знаю», и роли считаются по списку класса, как раньше.
+    spell_keys: frozenset[str] = field(default_factory=frozenset)
 
 
 #: Роль заклинания в партии. По ней ищутся дыры в составе: если контроль уже

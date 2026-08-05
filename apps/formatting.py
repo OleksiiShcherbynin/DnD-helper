@@ -106,6 +106,40 @@ def parse_member(text: str) -> tuple[str, str, int, str | None] | None:
     return (name, class_key, level, subclass_key)
 
 
+_SPELL_ACTIONS = {"add": True, "добавить": True, "remove": False, "убрать": False}
+
+
+def parse_spell_command(
+    text: str, catalog_names: list[str]
+) -> tuple[str | None, bool, str] | None:
+    """
+    Разобрать строку вида "Кузьма add cure wounds" в имя, действие и заклинание.
+
+    Действие служит разделителем: имя до него, название заклинания после.
+    Название ищется по началу — за столом никто не печатает Wall of Fire
+    целиком, — но неоднозначный кусок не угадывается: под "fire" подходят и
+    Fireball, и Fire Bolt, и Wall of Fire.
+    """
+    parts = (text or "").split()
+    action_at = next(
+        (index for index, part in enumerate(parts) if part.lower() in _SPELL_ACTIONS),
+        None,
+    )
+    if action_at is None:
+        return None
+
+    wanted = " ".join(parts[action_at + 1 :]).strip().lower()
+    if not wanted:
+        return None
+
+    matches = [name for name in catalog_names if name.lower().startswith(wanted)]
+    if len(matches) != 1:
+        return None
+
+    name = " ".join(parts[:action_at]).strip() or None
+    return name, _SPELL_ACTIONS[parts[action_at].lower()], matches[0]
+
+
 #: Как называют характеристики и боевые числа. Русские сокращения — те, что
 #: пишут в листах персонажа; английские — потому что половина стола говорит
 #: "ac", а не "кд".
