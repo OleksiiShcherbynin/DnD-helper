@@ -350,10 +350,14 @@ class Storage:
         self, owner_id: str, name: str | None, column: str
     ) -> tuple[int, str | None] | None:
         """
-        Найти персонажа, которого владелец вправе править.
+        Найти персонажа, которого можно заполнять.
 
-        name = None — свой. Иначе только заведённый вручную: чужие персонажи
-        принадлежат тем, кто ими играет.
+        name = None — свой. Иначе любой в той же партии: обычно её ведёт один
+        человек, а остальные ботом не пользуются, и запрет трогать чужой лист
+        мешал ровно тому, ради чего всё делалось. Границей остаётся партия.
+
+        Двух одинаковых имён достаточно, чтобы отказаться: записать наугад
+        значит испортить лист не тому персонажу.
         """
         if name is None:
             return self._db.execute(
@@ -361,16 +365,23 @@ class Storage:
                 (owner_id,),
             ).fetchone()
 
-        wanted = name.strip().casefold()
+        character = self.get_character(owner_id)
+        if character is None:
+            return None
+
+        where, value = (
+            ("party_code = ?", character.party_code)
+            if character.party_code
+            else ("owner_id = ?", owner_id)
+        )
         # Сравнение в Python: встроенный lower() в SQLite кириллицу не трогает.
         rows = self._db.execute(
-            f"SELECT id, {column}, name FROM characters "
-            f"WHERE owner_id = ? AND telegram_id IS NULL",
-            (owner_id,),
+            f"SELECT id, {column}, name FROM characters WHERE {where}", (value,)
         ).fetchall()
-        return next(
-            ((item[0], item[1]) for item in rows if item[2].casefold() == wanted), None
-        )
+
+        wanted = name.strip().casefold()
+        matched = [(item[0], item[1]) for item in rows if item[2].casefold() == wanted]
+        return matched[0] if len(matched) == 1 else None
 
     def _write_stats(self, owner_id: str, name: str | None, change) -> bool:
         row = self._find_editable(owner_id, name, "stats")
@@ -412,6 +423,40 @@ class Storage:
             ),
         )
         self._db.commit()
+
+    def is_played_by_someone(self, owner_id: str, name: str) -> bool:
+        """
+        Играет ли этим персонажем живой игрок, или его завели вручную.
+
+        Нужно переносу: копия чужого персонажа развела бы двойников.
+        """
+        character = self.get_character(owner_id)
+        if character is None:
+            return False
+
+        where, value = (
+            ("party_code = ?", character.party_code)
+            if character.party_code
+            else ("owner_id = ?", owner_id)
+        )
+        rows = self._db.execute(
+            f"SELECT name, telegram_id FROM characters WHERE {where}", (value,)
+        ).fetchall()
+
+        wanted = name.strip().casefold()
+        return any(row[1] for row in rows if row[0].casefold() == wanted)
+
+    def drop_manual_members(self, owner_id: str) -> int:
+        """
+        Убрать всех заведённых вручную. Нужно переносу: слепок применяется
+        целиком, иначе повторный ввоз удваивал бы отряд.
+        """
+        cursor = self._db.execute(
+            "DELETE FROM characters WHERE owner_id = ? AND telegram_id IS NULL",
+            (owner_id,),
+        )
+        self._db.commit()
+        return cursor.rowcount
 
     def remove_member(self, owner_id: str, name: str) -> bool:
         """

@@ -39,6 +39,7 @@ from core.encounter import estimate_encounter
 from core.models import ABILITIES, ABILITY_NAMES, ROLE_NAMES, Stats
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
+from core.transfer import ParseError, dump_party, load_party
 
 load_dotenv()
 
@@ -309,6 +310,31 @@ with st.sidebar:
     if leave.button("Выйти"):
         storage.leave_party(LOCAL_OWNER)
         st.rerun()
+
+    with st.expander("Перенос отряда"):
+        st.caption(
+            "Сайт и бот ведут записи отдельно. Слепок переносит отряд между ними "
+            "целиком: скопируйте текст и вставьте на другой стороне."
+        )
+        try:
+            st.text_area("Отсюда — скопировать", dump_party(storage, LOCAL_OWNER), height=90)
+        except LookupError as error:
+            st.caption(str(error))
+
+        incoming = st.text_area("Сюда — вставить", height=90, key="import_text")
+        if st.button("Применить") and incoming.strip():
+            try:
+                skipped = load_party(storage, LOCAL_OWNER, incoming)
+            except ParseError as error:
+                st.error(str(error))
+            else:
+                if skipped:
+                    st.info(
+                        "Пропущены персонажи живых игроков: "
+                        + ", ".join(skipped)
+                        + ". Они остаются у своих владельцев."
+                    )
+                st.rerun()
 
     st.header("Настройки")
     top_n = st.slider("Сколько вариантов показать", 1, 8, 3)

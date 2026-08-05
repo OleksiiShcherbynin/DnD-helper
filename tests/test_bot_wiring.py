@@ -32,7 +32,8 @@ def test_handler_table_covers_the_documented_commands():
         for command in handler.commands
     }
     assert {
-        "start", "me", "party", "spells", "fight", "member", "stats"
+        "start", "me", "party", "spells", "fight", "member", "stats",
+        "spell", "export", "import",
     } <= commands
 
 

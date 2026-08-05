@@ -54,6 +54,7 @@ from core.advisor import ADVISORS, advise
 from core.class_profiles import display_name, subclass_profile
 from core.encounter import estimate_encounter
 from core.models import ABILITY_NAMES, Stats
+from core.transfer import ParseError, dump_party, load_party
 from core.party_sheet import build_party_sheet
 from core.request import AdviceRequest
 
@@ -72,6 +73,7 @@ HELP = (
     "/member remove Гарет — убрать его\n"
     "/stats сил 16 кд 17 — вписать числа, можно по частям\n"
     "/spell add fireball — что персонаж умеет колдовать\n"
+    "/export и /import — перенести отряд на сайт и обратно\n"
     "/party create — создать партию и получить код\n"
     "/party join КОД — вступить в чужую партию\n\n"
     "<b>Как спрашивать</b>\n"
@@ -441,6 +443,50 @@ async def spell(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_html(f"{verb}{whose}: {html.escape(spell_name)}.")
 
 
+async def export(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Выдать слепок отряда, чтобы перенести его на сайт или в другую копию."""
+    deps, user_id = _deps(context), _user_id(update)
+    try:
+        text = dump_party(deps.storage, user_id)
+    except LookupError as error:
+        await update.message.reply_html(html.escape(str(error)))
+        return
+
+    await update.message.reply_html(
+        "Скопируйте целиком и вставьте на сайте или командой "
+        "<code>/import</code>:\n\n"
+        f"<pre>{html.escape(text)}</pre>"
+    )
+
+
+async def do_import(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Применить слепок отряда."""
+    deps, user_id = _deps(context), _user_id(update)
+    raw = update.message.text.partition(" ")[2].strip()
+
+    if not raw:
+        await update.message.reply_html(
+            "Вставьте слепок после команды: <code>/import {\"v\":1,...}</code>\n"
+            "Получить его — <code>/export</code> здесь или кнопка на сайте."
+        )
+        return
+
+    try:
+        skipped = load_party(deps.storage, user_id, raw)
+    except ParseError as error:
+        await update.message.reply_html(html.escape(str(error)))
+        return
+
+    lines = ["Отряд перенесён.", format_party(deps.storage.party_members(user_id))]
+    if skipped:
+        lines.append(
+            "\n<i>Пропущены персонажи живых игроков: "
+            + html.escape(", ".join(skipped))
+            + ". Они остаются у своих владельцев.</i>"
+        )
+    await update.message.reply_html("\n".join(lines))
+
+
 async def fight(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Оценить бой: /fight goblin 4, ogre"""
     deps, user_id = _deps(context), _user_id(update)
@@ -548,6 +594,8 @@ def build_handlers() -> list:
         CommandHandler("member", member),
         CommandHandler("stats", stats),
         CommandHandler("spell", spell),
+        CommandHandler("export", export),
+        CommandHandler("import", do_import),
         CallbackQueryHandler(explain, pattern="^explain$"),
         MessageHandler(filters.TEXT & ~filters.COMMAND, on_text),
     ]

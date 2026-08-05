@@ -237,14 +237,51 @@ def test_stats_of_a_member_are_set_by_name(storage):
     assert storage.party_members("вася")[0].stats.damage_per_round == 22.0
 
 
-def test_stats_of_a_stranger_are_refused(storage):
-    """Чужой персонаж принадлежит тому, кто им играет."""
+def test_anyone_in_the_party_can_fill_in_anyone(storage):
+    """
+    Партию обычно ведёт один человек, а остальные ботом не пользуются. Запрет
+    править чужого персонажа защищал от проблемы, которой за столом нет, и
+    мешал ровно тому, ради чего всё делалось.
+    """
     storage.save_character("вася", class_key="srd_druid", level=6)
     storage.save_character("петя", class_key="srd_cleric", level=4)
     code = storage.create_party("вася")
     storage.join_party("петя", code)
 
+    assert storage.update_stats("вася", "жрец", Stats(ac=20)) is True
+    assert storage.get_character("петя").stats.ac == 20
+
+
+def test_someone_outside_your_party_stays_untouchable(storage):
+    """Границей остаётся партия: чужой стол — не твоё дело."""
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.save_character("чужак", class_key="srd_cleric", level=4)
+
     assert storage.update_stats("вася", "жрец", Stats(ac=20)) is False
+
+
+def test_an_ambiguous_name_is_refused(storage):
+    """
+    Двух друидов в отряде различить нечем, и записать наугад значит испортить
+    лист не тому персонажу.
+    """
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.add_member("вася", name="Друид", class_key="srd_druid", level=3)
+
+    assert storage.update_stats("вася", "друид", Stats(ac=20)) is False
+
+
+def test_removing_still_touches_only_your_own(storage):
+    """
+    Дописать заклинание чужому персонажу и удалить его целиком — разные вещи.
+    Удаление остаётся за владельцем.
+    """
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.save_character("петя", class_key="srd_cleric", level=4)
+    code = storage.create_party("вася")
+    storage.join_party("петя", code)
+
+    assert storage.remove_member("вася", "жрец") is False
 
 
 def test_setting_stats_for_nobody_is_not_an_error(storage):
@@ -291,11 +328,23 @@ def test_replacing_the_list_drops_what_was_left_out(storage):
     assert storage.get_character("вася").spell_keys == {"srd_web"}
 
 
-def test_spells_of_a_stranger_are_refused(storage):
+def test_spells_can_be_filled_in_for_anyone_in_the_party(storage):
+    """
+    Друг завёл персонажа сам, а список заклинаний ведёт тот, кто ведёт партию.
+    Иначе список так и остался бы пустым, а роли — посчитанными по классу.
+    """
     storage.save_character("вася", class_key="srd_druid", level=6)
     storage.save_character("петя", class_key="srd_cleric", level=4)
     code = storage.create_party("вася")
     storage.join_party("петя", code)
+
+    assert storage.update_spells("вася", "жрец", add={"srd_bless"}) is True
+    assert storage.get_character("петя").spell_keys == {"srd_bless"}
+
+
+def test_spells_of_someone_outside_the_party_are_refused(storage):
+    storage.save_character("вася", class_key="srd_druid", level=6)
+    storage.save_character("чужак", class_key="srd_cleric", level=4)
 
     assert storage.update_spells("вася", "жрец", add={"srd_bless"}) is False
 
